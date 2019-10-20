@@ -475,7 +475,7 @@ BitmapFile binaryImageErosion(BitmapFile binary, StructuringElement se)
 	return  binaryImageErosionAndDelation(binary, se, true);
 }
 
-BitmapFile binaryImageDelation(BitmapFile binary, StructuringElement se)
+BitmapFile binaryImageDilation(BitmapFile binary, StructuringElement se)
 {
 	return binaryImageErosionAndDelation(binary, se, false);
 }
@@ -483,13 +483,13 @@ BitmapFile binaryImageDelation(BitmapFile binary, StructuringElement se)
 BitmapFile binaryImageOpening(BitmapFile binary, StructuringElement se)
 {
 	auto bmp = binaryImageErosion(binary, se);
-	bmp = binaryImageDelation(bmp, se);
+	bmp = binaryImageDilation(bmp, se);
 	return bmp;
 }
 
 BitmapFile binaryImageClosing(BitmapFile binary, StructuringElement se)
 {
-	auto bmp = binaryImageDelation(binary, se);
+	auto bmp = binaryImageDilation(binary, se);
 	bmp = binaryImageErosion(bmp, se);
 	return bmp;
 }

@@ -91,8 +91,7 @@ struct YUVData
 		fileHead(fh), infoHead(ih), palette(std::move(p)), data(std::move(d)) {}
 	YUVData(BitmapFile& bmp) :fileHead(bmp.fileHead), infoHead(bmp.infoHead), palette(bmp.palette)
 	{
-		data = Mat((bmp.infoHead.biWidth * bmp.infoHead.biBitCount / 8 + 3) / 4 * 4 / bmp.infoHead.biBitCount * 8
-			, bmp.infoHead.biHeight, sizeof(double) * 8 * 3);
+		data = Mat(bmp.data.getRow(),bmp.data.getCol(), sizeof(double) * 8 * 3);
 	}
 	[[nodiscard]] YUVData clone() const;
 };
@@ -120,6 +119,6 @@ void binarize8BitFile(uint8_t threshold, BitmapFile gray);
 uint8_t generateThreshold(BitmapFile gray);
 uint8_t generateThreshold_Otsu(BitmapFile gray);
 BitmapFile binaryImageErosion(BitmapFile binary, StructuringElement se);
-BitmapFile binaryImageDelation(BitmapFile binary, StructuringElement se);
+BitmapFile binaryImageDilation(BitmapFile binary, StructuringElement se);
 BitmapFile binaryImageOpening(BitmapFile binary, StructuringElement se);
 BitmapFile binaryImageClosing(BitmapFile binary, StructuringElement se);

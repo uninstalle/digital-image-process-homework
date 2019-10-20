@@ -338,3 +338,11 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
+/proj4dip/pxs_opening.bmp
+/proj4dip/pxs_gray.bmp
+/proj4dip/pxs_ero.bmp
+/proj4dip/pxs_dil.bmp
+/proj4dip/pxs_del.bmp
+/proj4dip/pxs_closing.bmp
+/proj4dip/pxs_bi_otsu.bmp
+/proj4dip/pxs_bi.bmp

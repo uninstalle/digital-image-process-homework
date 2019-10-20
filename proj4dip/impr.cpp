@@ -36,8 +36,8 @@ int main()
 	saveBMPFile("pxs_ero.bmp", file4);
 
 
-	auto file5 = binaryImageDelation(file3, se);
-	saveBMPFile("pxs_del.bmp", file5);
+	auto file5 = binaryImageDilation(file3, se);
+	saveBMPFile("pxs_dil.bmp", file5);
 
 	auto file6 = binaryImageOpening(file3, se);
 	saveBMPFile("pxs_opening.bmp", file6);
