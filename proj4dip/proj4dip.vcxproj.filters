@@ -18,5 +18,13 @@
     <ClCompile Include="impr.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="bmpreader.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="bmpreader.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
