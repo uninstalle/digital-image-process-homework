@@ -15,35 +15,18 @@ int main()
 		return -1;
 	}
 	auto file_yuv = convertRGBtoYUV(file);
+	auto file_yuv2 = file_yuv.clone();
+	//logarithmicOperation(file_yuv2);
+	auto file_11 = convertYUVtoRGB(file_yuv2);
+	histogramEqualization_2(file_11);
+	saveBMPFile("pxs_2.bmp", file_11);
 
 	auto file2 = file.clone();
 	auto file2_g = toGray(file2);
 	saveBMPFile("pxs_gray.bmp", file2_g);
-
-	auto file3 = file2_g.clone();
-	binarize8BitFile(generateThreshold_Otsu(file3), file3);
-	saveBMPFile("pxs_bi_otsu.bmp", file3);
-
-	auto file3_1 = file2_g.clone();
-	binarize8BitFile(generateThreshold(file3), file3);
-	saveBMPFile("pxs_bi.bmp", file3);
-
-	StructuringElement se{ 3,3,1,1,
-	{1,1,1,
-			1,1,1,
-			1,1,1} };
-	auto file4 = binaryImageErosion(file3, se);
-	saveBMPFile("pxs_ero.bmp", file4);
-
-
-	auto file5 = binaryImageDilation(file3, se);
-	saveBMPFile("pxs_dil.bmp", file5);
-
-	auto file6 = binaryImageOpening(file3, se);
-	saveBMPFile("pxs_opening.bmp", file6);
-
-	auto file7 = binaryImageClosing(file3, se);
-	saveBMPFile("pxs_closing.bmp", file7);
+	auto file2_ghe = file2_g.clone();
+	histogramEqualization8bit(file2_ghe);
+	saveBMPFile("pxs_gray_histo.bmp", file2_ghe);
 
 
 	return 0;

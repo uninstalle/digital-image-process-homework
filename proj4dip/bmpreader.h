@@ -54,6 +54,7 @@ public:
 	unsigned getBitCount() const { return bitPerElement; }
 	unsigned getSize() const { return size; }
 	char* getDataPtr() { return data.get(); }
+	template <typename T> T getDataPtr() { return reinterpret_cast<T>(data.get()); }
 	void resize(unsigned row, unsigned col, unsigned bitPerElement);
 	Mat clone() const;
 };
@@ -122,3 +123,9 @@ BitmapFile binaryImageErosion(BitmapFile binary, StructuringElement se);
 BitmapFile binaryImageDilation(BitmapFile binary, StructuringElement se);
 BitmapFile binaryImageOpening(BitmapFile binary, StructuringElement se);
 BitmapFile binaryImageClosing(BitmapFile binary, StructuringElement se);
+
+void logarithmicOperation(YUVData yuv);
+
+void histogramEqualization8bit(BitmapFile gray);
+void histogramEqualization(BitmapFile bmp);
+void histogramEqualization_2(BitmapFile bmp);

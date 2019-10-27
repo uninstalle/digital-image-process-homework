@@ -113,8 +113,8 @@ BitmapFile loadBMPFile(std::string filename)
 		BMPfs.read(reinterpret_cast<char*>(bmp.palette.data.getDataPtr()), bmp.palette.data.getSize());
 	}
 	// width is 4-byte aligned
-	bmp.data = Mat((bmp.infoHead.biWidth * bmp.infoHead.biBitCount / 8 + 3) / 4 * 4 / bmp.infoHead.biBitCount * 8
-		, bmp.infoHead.biHeight, bmp.infoHead.biBitCount);
+	bmp.data = Mat((bmp.infoHead.biWidth * bmp.infoHead.biBitCount / 8 + 3) / 4 * 4 / bmp.infoHead.biBitCount * 8,
+		bmp.infoHead.biHeight, bmp.infoHead.biBitCount);
 	BMPfs.read(bmp.data.getDataPtr(), bmp.data.getSize());
 
 	BMPfs.close();
@@ -445,7 +445,7 @@ BitmapFile binaryImageErosionAndDelation(BitmapFile binary, StructuringElement s
 		for (unsigned j = 0; j + se.row - 1 < binary.infoHead.biWidth; ++j)
 		{
 			bool erosion = false;
-			bool delation = false;
+			bool dilation = false;
 
 			for (unsigned se_i = 0; se_i < se.col; ++se_i)
 			{
@@ -455,13 +455,13 @@ BitmapFile binaryImageErosionAndDelation(BitmapFile binary, StructuringElement s
 					if (se.element[se_i * se.row + se_j] && !value)
 						erosion = true;
 					if (se.element[se_i * se.row + se_j] && value)
-						delation = true;
+						dilation = true;
 				}
 			}
 			if (retErosion)
 				dst_pixel[(i + se.originY) * binary.infoHead.biWidth + j + se.OriginX] = erosion ? 0 : 255;
 			else
-				dst_pixel[(i + se.originY) * binary.infoHead.biWidth + j + se.OriginX] = delation ? 255 : 0;
+				dst_pixel[(i + se.originY) * binary.infoHead.biWidth + j + se.OriginX] = dilation ? 255 : 0;
 
 
 		}
@@ -494,3 +494,125 @@ BitmapFile binaryImageClosing(BitmapFile binary, StructuringElement se)
 	return bmp;
 }
 
+void logarithmicOperation(YUVData yuv)
+{
+	auto yuv_pixel = reinterpret_cast<double(*)[3]>(yuv.data.getDataPtr());
+
+
+	double Lmax = 0;
+
+	for (unsigned i = 0; i < yuv.infoHead.biHeight; ++i)
+		for (unsigned j = 0; j < yuv.infoHead.biWidth; ++j)
+			if (yuv_pixel[i * yuv.data.getRow() + j][2] > Lmax)
+				Lmax = yuv_pixel[i * yuv.data.getRow() + j][2];
+
+	Lmax /= 255;
+
+	for (unsigned i = 0; i < yuv.infoHead.biHeight; ++i)
+		for (unsigned j = 0; j < yuv.infoHead.biWidth; ++j)
+		{
+			double Lw = yuv_pixel[i * yuv.data.getRow() + j][2] / 255;
+			yuv_pixel[i * yuv.data.getRow() + j][2] = 255 * std::log(Lw + 1) / std::log(Lmax + 1);
+		}
+}
+
+void histogramEqualization8bit(BitmapFile gray)
+{
+	unsigned numOfPixels = gray.infoHead.biWidth * gray.infoHead.biHeight;
+	int numOfGrayLevels[256] = { 0 };
+	int grayLevelsMapping[256];
+	auto pixel = gray.data.getDataPtr<uint8_t*>();
+
+	for (unsigned i = 0; i < gray.infoHead.biHeight; ++i)
+		for (unsigned j = 0; j < gray.infoHead.biWidth; ++j)
+			numOfGrayLevels[pixel[i * gray.data.getRow() + j]]++;
+
+	double grayLevel = 0;
+
+	for (int i = 0; i < 256; ++i)
+	{
+		grayLevel += double(numOfGrayLevels[i]) / numOfPixels * 255;
+		grayLevelsMapping[i] = std::round(grayLevel);
+	}
+
+	for (unsigned i = 0; i < gray.infoHead.biHeight; ++i)
+		for (unsigned j = 0; j < gray.infoHead.biWidth; ++j)
+			pixel[i * gray.data.getRow() + j] = grayLevelsMapping[pixel[i * gray.data.getRow() + j]];
+}
+
+void histogramEqualization(BitmapFile bmp)
+{
+	unsigned numOfPixels = bmp.infoHead.biWidth * bmp.infoHead.biHeight * 3;
+	int numOfLevels[256] = { 0 };
+	int levelsMapping[256];
+	auto pixel = bmp.data.getDataPtr<uint8_t(*)[3]>();
+
+	for (unsigned i = 0; i < bmp.infoHead.biHeight; ++i)
+		for (unsigned j = 0; j < bmp.infoHead.biWidth; ++j)
+		{
+			numOfLevels[pixel[i * bmp.data.getRow() + j][0]]++;
+			numOfLevels[pixel[i * bmp.data.getRow() + j][1]]++;
+			numOfLevels[pixel[i * bmp.data.getRow() + j][2]]++;
+		}
+	
+	double level = 0;
+
+	for (int i = 0; i < 256; ++i)
+	{
+		level += double(numOfLevels[i]) / numOfPixels * 255;
+		levelsMapping[i] = std::round(level);
+	}
+
+
+	for (unsigned i = 0; i < bmp.infoHead.biHeight; ++i)	
+		for (unsigned j = 0; j < bmp.infoHead.biWidth; ++j)
+		{
+			pixel[i * bmp.data.getRow() + j][0] = levelsMapping[pixel[i * bmp.data.getRow() + j][0]];
+			pixel[i * bmp.data.getRow() + j][1] = levelsMapping[pixel[i * bmp.data.getRow() + j][1]];
+			pixel[i * bmp.data.getRow() + j][2] = levelsMapping[pixel[i * bmp.data.getRow() + j][2]];
+		}
+
+}
+
+
+void histogramEqualization_2(BitmapFile bmp)
+{
+	unsigned numOfPixels = bmp.infoHead.biWidth * bmp.infoHead.biHeight;
+	int numOfRedLevels[256] = { 0 };
+	int numOfGreenLevels[256] = { 0 };
+	int numOfBlueLevels[256] = { 0 };
+	int redLevelsMapping[256], greenLevelsMapping[256], blueLevelsMapping[256];
+	auto pixel = bmp.data.getDataPtr<uint8_t(*)[3]>();
+
+	for (unsigned i = 0; i < bmp.infoHead.biHeight; ++i)
+		for (unsigned j = 0; j < bmp.infoHead.biWidth; ++j)
+		{
+			numOfBlueLevels[pixel[i * bmp.data.getRow() + j][0]]++;
+			numOfGreenLevels[pixel[i * bmp.data.getRow() + j][1]]++;
+			numOfRedLevels[pixel[i * bmp.data.getRow() + j][2]]++;
+		}
+
+	double redLevel = 0, greenLevel = 0, blueLevel = 0;
+
+	for (int i = 0; i < 256; ++i)
+	{
+		redLevel += double(numOfRedLevels[i]) / numOfPixels * 255;
+		redLevelsMapping[i] = std::round(redLevel);
+
+		greenLevel += double(numOfGreenLevels[i]) / numOfPixels * 255;
+		greenLevelsMapping[i] = std::round(greenLevel);
+
+		blueLevel += double(numOfBlueLevels[i]) / numOfPixels * 255;
+		blueLevelsMapping[i] = std::round(blueLevel);
+	}
+
+
+	for (unsigned i = 0; i < bmp.infoHead.biHeight; ++i)
+		for (unsigned j = 0; j < bmp.infoHead.biWidth; ++j)
+		{
+			pixel[i * bmp.data.getRow() + j][0] = blueLevelsMapping[pixel[i * bmp.data.getRow() + j][0]];
+			pixel[i * bmp.data.getRow() + j][1] = greenLevelsMapping[pixel[i * bmp.data.getRow() + j][1]];
+			pixel[i * bmp.data.getRow() + j][2] = redLevelsMapping[pixel[i * bmp.data.getRow() + j][2]];
+		}
+
+}
