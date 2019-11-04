@@ -34,14 +34,31 @@ struct BitmapInfoHead
 
 class Mat
 {
+	enum class TYPE;
+
 	unsigned row, col;
 	unsigned bitPerElement;
 	unsigned size;
 	std::shared_ptr<char[]> data;
+
+	TYPE type;
+
 public:
-	Mat() :row(0), col(0), bitPerElement(0), size(0), data(nullptr) {}
+
+	enum class TYPE
+	{
+		DEFAULT,
+		BINARY,
+		GRAY_8BIT,
+		RGB_16,
+		RGB_24,
+		RGBA_32,
+		YUV
+	};
+
+	Mat() :row(0), col(0), bitPerElement(0), size(0), data(nullptr), type(TYPE::DEFAULT) {}
 	Mat(unsigned row, unsigned col, unsigned bitPerElement)
-		:row(row), col(col), bitPerElement(bitPerElement), size(row* col* bitPerElement / 8)
+		:row(row), col(col), bitPerElement(bitPerElement), size(row* col* bitPerElement / 8), type(TYPE::DEFAULT)
 	{
 		//C++17 needed
 		data = std::shared_ptr<char[]>(new char[size]);
@@ -53,10 +70,59 @@ public:
 	unsigned getCol() const { return col; }
 	unsigned getBitCount() const { return bitPerElement; }
 	unsigned getSize() const { return size; }
-	char* getDataPtr() { return data.get(); }
+	void setType(TYPE t) { type = t; }
+	TYPE getType() const { return type; }
+
+	char* getRawDataPtr() { return data.get(); }
 	template <typename T> T getDataPtr() { return reinterpret_cast<T>(data.get()); }
 	void resize(unsigned row, unsigned col, unsigned bitPerElement);
 	Mat clone() const;
+	virtual  ~Mat() = default;
+};
+
+class RGBData :public Mat
+{
+public:
+	RGBData() = default;
+	RGBData(unsigned row, unsigned col, unsigned bitPerElement)
+		:Mat(row, col, bitPerElement)
+	{
+		switch (bitPerElement)
+		{
+		case 2:
+			setType(TYPE::BINARY); break;
+		case 8:
+			setType(TYPE::GRAY_8BIT); break;
+		case 16:
+			setType(TYPE::RGB_16); break;
+		case 24:
+			setType(TYPE::RGB_24); break;
+		case 32:
+			setType(TYPE::RGBA_32); break;
+		default:
+			setType(TYPE::DEFAULT); break;
+		}
+	}
+};
+
+class YUVData :public Mat
+{
+public:
+	YUVData() = default;
+	YUVData(unsigned row, unsigned col)
+		:Mat(row, col, sizeof(double) * 8 * 3)
+	{
+		setType(TYPE::YUV);
+	}
+	auto getDataPtr() ->double(*)[3]
+	{
+		return reinterpret_cast<double(*)[3]>(getRawDataPtr());
+	}
+};
+
+class XYZData:public Mat
+{
+	
 };
 
 struct BitmapPalette
@@ -81,30 +147,14 @@ struct BitmapFile
 	[[nodiscard]] BitmapFile clone() const;
 };
 
-struct YUVData
-{
-	BitmapFileHead fileHead;
-	BitmapInfoHead infoHead;
-	BitmapPalette palette;
-	Mat data;
-	YUVData() = default;
-	YUVData(BitmapFileHead fh, BitmapInfoHead ih, BitmapPalette p, Mat d) :
-		fileHead(fh), infoHead(ih), palette(std::move(p)), data(std::move(d)) {}
-	YUVData(BitmapFile& bmp) :fileHead(bmp.fileHead), infoHead(bmp.infoHead), palette(bmp.palette)
-	{
-		data = Mat(bmp.data.getRow(),bmp.data.getCol(), sizeof(double) * 8 * 3);
-	}
-	[[nodiscard]] YUVData clone() const;
-};
 
 BitmapFile loadBMPFile(std::string filename);
 void saveBMPFile(std::string filename, BitmapFile& bmp);
 
-YUVData convertRGBtoYUV(BitmapFile& bmp);
-BitmapFile convertYUVtoRGB(YUVData& yuv);
+BitmapFile convertRGBtoYUV(BitmapFile& bmp);
+BitmapFile convertYUVtoRGB(BitmapFile& bmp);
 
 BitmapFile toGray(BitmapFile& bmp);
-BitmapFile toGray(YUVData& yuv);
 
 void changeLuminanceValue(double deltaValue, YUVData& yuv);
 
@@ -124,7 +174,7 @@ BitmapFile binaryImageDilation(BitmapFile binary, StructuringElement se);
 BitmapFile binaryImageOpening(BitmapFile binary, StructuringElement se);
 BitmapFile binaryImageClosing(BitmapFile binary, StructuringElement se);
 
-void logarithmicOperation(YUVData yuv);
+void logarithmicOperation(BitmapFile bmp);
 
 void histogramEqualization8bit(BitmapFile gray);
 void histogramEqualization(BitmapFile bmp);

@@ -7,7 +7,7 @@ int main()
 	BitmapFile file;
 	try
 	{
-		file = loadBMPFile("pxs.bmp");
+		file = loadBMPFile("pxs_aligned.bmp");
 	}
 	catch (std::runtime_error & e)
 	{
@@ -18,7 +18,7 @@ int main()
 	auto file_yuv2 = file_yuv.clone();
 	//logarithmicOperation(file_yuv2);
 	auto file_11 = convertYUVtoRGB(file_yuv2);
-	histogramEqualization_2(file_11);
+	histogramEqualization(file_11);
 	saveBMPFile("pxs_2.bmp", file_11);
 
 	auto file2 = file.clone();
