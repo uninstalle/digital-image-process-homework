@@ -53,9 +53,7 @@ public:
 		RGB_16,
 		RGB_24,
 		RGBA_32,
-		YUV,
-		XYZ,
-		Lab
+		YUV
 	};
 
 	Mat() :row(0), col(0), bitPerElement(0), size(0), data(nullptr), type(TYPE::DEFAULT) {}
@@ -120,39 +118,11 @@ public:
 	{
 		return reinterpret_cast<double(*)[3]>(getRawDataPtr());
 	}
-	~YUVData() = default;
 };
 
-class XYZData :public Mat
+class XYZData:public Mat
 {
-public:
-	XYZData() = default;
-	XYZData(unsigned row, unsigned col)
-		:Mat(row, col, sizeof(double) * 8 * 3)
-	{
-		setType(TYPE::XYZ);
-	}
-	auto getDataPtr() ->double(*)[3]
-	{
-		return  reinterpret_cast<double(*)[3]>(getRawDataPtr());
-	}
-	~XYZData() = default;
-};
-
-class LabData :public Mat
-{
-public:
-	LabData() = default;
-	LabData(unsigned row, unsigned col)
-		:Mat(row, col, sizeof(double) * 8 * 3)
-	{
-		setType(TYPE::Lab);
-	}
-	auto getDataPtr() ->double(*)[3]
-	{
-		return reinterpret_cast<double(*)[3]>(getRawDataPtr());
-	}
-	~LabData() = default;
+	
 };
 
 struct BitmapPalette
@@ -181,21 +151,12 @@ struct BitmapFile
 BitmapFile loadBMPFile(std::string filename);
 void saveBMPFile(std::string filename, BitmapFile& bmp);
 
-Mat convertRGBtoYUV(Mat& rgb);
-Mat convertYUVtoRGB(Mat& yuv);
-
-Mat convertRGBtoXYZ(Mat& rgb);
-Mat convertXYZtoRGB(Mat& xyz);
-Mat convertRGBtoLab(Mat& rgb);
-
-Mat convertXYZtoLab(Mat& xyz);
-Mat convertLabtoXYZ(Mat& lab);
-Mat convertLabtoRGB(Mat& lab);
+BitmapFile convertRGBtoYUV(BitmapFile& bmp);
+BitmapFile convertYUVtoRGB(BitmapFile& bmp);
 
 BitmapFile toGray(BitmapFile& bmp);
 
-void changeLuminanceYUV(double deltaValue, Mat& yuv);
-void changeLuminanceLab(double deltaValue, Mat& lab);
+void changeLuminanceValue(double deltaValue, YUVData& yuv);
 
 
 struct StructuringElement
@@ -213,8 +174,7 @@ BitmapFile binaryImageDilation(BitmapFile binary, StructuringElement se);
 BitmapFile binaryImageOpening(BitmapFile binary, StructuringElement se);
 BitmapFile binaryImageClosing(BitmapFile binary, StructuringElement se);
 
-void logarithmicOperationYUV(BitmapFile& bmp);
-void logarithmicOperationLab(BitmapFile& bmp);
+void logarithmicOperation(BitmapFile bmp);
 
 void histogramEqualization8bit(BitmapFile gray);
 void histogramEqualization(BitmapFile bmp);
