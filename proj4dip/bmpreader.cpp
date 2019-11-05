@@ -424,39 +424,46 @@ BitmapFile buildbinaryBMPHead(BitmapFileHead fh, BitmapInfoHead ih)
 	return bmp;
 }
 
-BitmapFile toGray(BitmapFile& bmp)
+BitmapFile toGrayRGB(BitmapFile& bmp)
 {
-	if (bmp.data.getType() == Mat::TYPE::YUV) {
+	auto pixel = bmp.data.getDataPtr<uint8_t(*)[3]>();
+	BitmapFile bmp_8bit = build8bitBMPHead(bmp.fileHead, bmp.infoHead);
+	bmp_8bit.data = Mat(bmp.data.getRow(), bmp.data.getCol(), 8);
+	auto pixel_8bit = bmp_8bit.data.getDataPtr<uint8_t*>();
 
+	unsigned numOfPixels = bmp.data.getRow() * bmp.data.getCol();
+	for (unsigned i = 0; i < numOfPixels; ++i) {
+		unsigned char gray = unsigned char(
+			pixel[i][2] * 0.299 + pixel[i][1] * 0.587 + pixel[i][0] * 0.114);
+		pixel_8bit[i] = gray;
+	}
+	return bmp_8bit;
+}
+
+BitmapFile toGrayYUV(BitmapFile& bmp)
+{
 		auto yuv_pixel = bmp.data.getDataPtr<double(*)[3]>();
-		BitmapFile bmp_8bit = bmp;
+		BitmapFile bmp_8bit = build8bitBMPHead(bmp.fileHead,bmp.infoHead);
 		bmp_8bit.data = Mat(bmp.data.getRow(), bmp.data.getCol(), 8);
 		auto pixel_8bit = bmp_8bit.data.getDataPtr<uint8_t*>();
 
 		unsigned numOfPixels = bmp.data.getRow() * bmp.data.getCol();
 		for (unsigned i = 0; i < numOfPixels; ++i)
 			pixel_8bit[i] = yuv_pixel[i][2];
-
 		return bmp_8bit;
-	}
-	else
-	{
-		auto pixel = bmp.data.getDataPtr<uint8_t(*)[3]>();
-		BitmapFile bmp_8bit = build8bitBMPHead(bmp.fileHead, bmp.infoHead);
-		bmp_8bit.data = Mat(bmp.data.getRow(), bmp.data.getCol(), 8);
-		auto pixel_8bit = bmp_8bit.data.getDataPtr<uint8_t*>();
+}
 
-		unsigned numOfPixels = bmp.data.getRow() * bmp.data.getCol();
-		for (unsigned i = 0; i < numOfPixels; ++i) {
-			unsigned char gray = unsigned char(
-				pixel[i][2] * 0.299 + pixel[i][1] * 0.587 + pixel[i][0] * 0.114);
-			pixel_8bit[i] = gray;
+BitmapFile toGrayLab(BitmapFile& bmp)
+{
+	auto lab_pixel = bmp.data.getDataPtr<double(*)[3]>();
+	BitmapFile bmp_8bit = build8bitBMPHead(bmp.fileHead, bmp.infoHead);
+	bmp_8bit.data = Mat(bmp.data.getRow(), bmp.data.getCol(), 8);
+	auto pixel_8bit = bmp_8bit.data.getDataPtr<uint8_t*>();
 
-		}
-
-
-		return bmp_8bit;
-	}
+	unsigned numOfPixels = bmp.data.getRow() * bmp.data.getCol();
+	for (unsigned i = 0; i < numOfPixels; ++i)
+		pixel_8bit[i] = lab_pixel[i][2] * 2.55;
+	return bmp_8bit;
 }
 
 

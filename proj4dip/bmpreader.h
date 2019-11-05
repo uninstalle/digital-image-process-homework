@@ -192,7 +192,9 @@ Mat convertXYZtoLab(Mat& xyz);
 Mat convertLabtoXYZ(Mat& lab);
 Mat convertLabtoRGB(Mat& lab);
 
-BitmapFile toGray(BitmapFile& bmp);
+BitmapFile toGrayRGB(BitmapFile& bmp);
+BitmapFile toGrayYUV(BitmapFile& bmp);
+BitmapFile toGrayLab(BitmapFile& bmp);
 
 void changeLuminanceYUV(double deltaValue, Mat& yuv);
 void changeLuminanceLab(double deltaValue, Mat& lab);
