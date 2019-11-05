@@ -14,19 +14,19 @@ int main()
 		std::cout << e.what();
 		return -1;
 	}
-	auto file_yuv = convertRGBtoYUV(file);
-	auto file_yuv2 = file_yuv.clone();
-	//logarithmicOperation(file_yuv2);
-	auto file_11 = convertYUVtoRGB(file_yuv2);
-	histogramEqualization(file_11);
-	saveBMPFile("pxs_2.bmp", file_11);
+	auto file_yuv = file;
+	file_yuv.data = convertRGBtoYUV(file_yuv.data);
+	//changeLuminanceYUV(25.5, file_yuv.data);
+	logarithmicOperationLab(file_yuv);
+	file_yuv.data = convertYUVtoRGB(file_yuv.data);
+	saveBMPFile("pxs_yuv.bmp",file_yuv);
 
-	auto file2 = file.clone();
-	auto file2_g = toGray(file2);
-	saveBMPFile("pxs_gray.bmp", file2_g);
-	auto file2_ghe = file2_g.clone();
-	histogramEqualization8bit(file2_ghe);
-	saveBMPFile("pxs_gray_histo.bmp", file2_ghe);
+	auto file_lab = file;
+	file_lab.data = convertRGBtoLab(file_lab.data);
+	//changeLuminanceLab(10, file_lab.data);
+	logarithmicOperationLab(file_lab);
+	file_lab.data = convertLabtoRGB(file_lab.data);
+	saveBMPFile("pxs_lab.bmp", file_lab);
 
 
 	return 0;
