@@ -123,38 +123,6 @@ public:
 	~YUVData() = default;
 };
 
-class XYZData :public Mat
-{
-public:
-	XYZData() = default;
-	XYZData(unsigned row, unsigned col)
-		:Mat(row, col, sizeof(double) * 8 * 3)
-	{
-		setType(TYPE::XYZ);
-	}
-	auto getDataPtr() ->double(*)[3]
-	{
-		return  reinterpret_cast<double(*)[3]>(getRawDataPtr());
-	}
-	~XYZData() = default;
-};
-
-class LabData :public Mat
-{
-public:
-	LabData() = default;
-	LabData(unsigned row, unsigned col)
-		:Mat(row, col, sizeof(double) * 8 * 3)
-	{
-		setType(TYPE::Lab);
-	}
-	auto getDataPtr() ->double(*)[3]
-	{
-		return reinterpret_cast<double(*)[3]>(getRawDataPtr());
-	}
-	~LabData() = default;
-};
-
 struct BitmapPalette
 {
 	Mat data;

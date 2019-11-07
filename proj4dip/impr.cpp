@@ -1,6 +1,7 @@
 #include <iostream>
 #include "bmpreader.h"
 
+#define TEST_RGB_CONVERSION
 #define TEST_GRAY
 #define TEST_BINARIZATION
 #define TEST_BINARY_OPERATION
@@ -21,6 +22,7 @@ int main()
 		return -1;
 	}
 
+#ifdef TEST_RGB_CONVERSION
 	// test RGB to YUV and YUV to RGB convert
 	auto file_yuv = file;
 	file_yuv.data = convertRGBtoYUV(file_yuv.data);
@@ -34,6 +36,7 @@ int main()
 	auto file_lab_backup = file_lab.clone();
 	file_lab.data = convertLabtoRGB(file_lab.data);
 	saveBMPFile("pxs_lab.bmp", file_lab);
+
 
 
 #ifdef TEST_GRAY
@@ -88,6 +91,7 @@ int main()
 #endif
 
 #endif
+	
 
 #ifdef TEST_LUMINANCE_CHANGING
 	// test luminance changing
@@ -117,7 +121,8 @@ int main()
 	saveBMPFile("pxs_lab_logop.bmp", file_lab_logop);
 #endif
 
-	
+
+#endif
 
 	return 0;
 }

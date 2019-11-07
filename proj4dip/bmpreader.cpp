@@ -230,7 +230,7 @@ Mat convertRGBtoXYZ(Mat& rgb)
 {
 	auto pixel = rgb.getDataPtr<uint8_t(*)[3]>();
 
-	Mat xyz = XYZData(rgb.getRow(), rgb.getCol());
+	Mat xyz = Mat(rgb.getRow(), rgb.getCol(), sizeof(double) * 8 * 3);
 	auto xyz_pixel = xyz.getDataPtr<double(*)[3]>();
 
 	double k1 = 1 / 0.950456, k2 = 1 / 1.088754;
@@ -272,7 +272,7 @@ Mat convertXYZtoLab(Mat& xyz)
 {
 	auto xyz_pixel = xyz.getDataPtr<double(*)[3]>();
 
-	Mat lab = LabData(xyz.getRow(), xyz.getCol());
+	Mat lab = Mat(xyz.getRow(), xyz.getCol(), sizeof(double) * 8 * 3);
 	auto lab_pixel = lab.getDataPtr<double(*)[3]>();
 
 	unsigned numOfPixels = xyz.getRow() * xyz.getCol();
@@ -333,7 +333,7 @@ Mat convertLabtoXYZ(Mat& lab)
 {
 	auto lab_pixel = lab.getDataPtr<double(*)[3]>();
 
-	Mat xyz = XYZData(lab.getRow(), lab.getCol());
+	Mat xyz = Mat(lab.getRow(), lab.getCol(), sizeof(double) * 8 * 3);
 	auto xyz_pixel = xyz.getDataPtr<double(*)[3]>();
 
 	unsigned numOfPixels = lab.getRow() * lab.getCol();
