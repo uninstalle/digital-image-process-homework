@@ -53,7 +53,9 @@ public:
 		RGB_16,
 		RGB_24,
 		RGBA_32,
-		YUV
+		YUV,
+		XYZ,
+		Lab
 	};
 
 	Mat() :row(0), col(0), bitPerElement(0), size(0), data(nullptr), type(TYPE::DEFAULT) {}
@@ -118,11 +120,7 @@ public:
 	{
 		return reinterpret_cast<double(*)[3]>(getRawDataPtr());
 	}
-};
-
-class XYZData:public Mat
-{
-	
+	~YUVData() = default;
 };
 
 struct BitmapPalette
@@ -151,12 +149,23 @@ struct BitmapFile
 BitmapFile loadBMPFile(std::string filename);
 void saveBMPFile(std::string filename, BitmapFile& bmp);
 
-BitmapFile convertRGBtoYUV(BitmapFile& bmp);
-BitmapFile convertYUVtoRGB(BitmapFile& bmp);
+Mat convertRGBtoYUV(Mat& rgb);
+Mat convertYUVtoRGB(Mat& yuv);
 
-BitmapFile toGray(BitmapFile& bmp);
+Mat convertRGBtoXYZ(Mat& rgb);
+Mat convertXYZtoRGB(Mat& xyz);
+Mat convertRGBtoLab(Mat& rgb);
 
-void changeLuminanceValue(double deltaValue, YUVData& yuv);
+Mat convertXYZtoLab(Mat& xyz);
+Mat convertLabtoXYZ(Mat& lab);
+Mat convertLabtoRGB(Mat& lab);
+
+BitmapFile toGrayRGB(BitmapFile& bmp);
+BitmapFile toGrayYUV(BitmapFile& bmp);
+BitmapFile toGrayLab(BitmapFile& bmp);
+
+void changeLuminanceYUV(double deltaValue, Mat& yuv);
+void changeLuminanceLab(double deltaValue, Mat& lab);
 
 
 struct StructuringElement
@@ -174,7 +183,8 @@ BitmapFile binaryImageDilation(BitmapFile binary, StructuringElement se);
 BitmapFile binaryImageOpening(BitmapFile binary, StructuringElement se);
 BitmapFile binaryImageClosing(BitmapFile binary, StructuringElement se);
 
-void logarithmicOperation(BitmapFile bmp);
+void logarithmicOperationYUV(BitmapFile& bmp);
+void logarithmicOperationLab(BitmapFile& bmp);
 
 void histogramEqualization8bit(BitmapFile gray);
 void histogramEqualization(BitmapFile bmp);
