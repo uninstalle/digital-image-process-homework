@@ -167,7 +167,7 @@ Mat convertRGBtoYUV(Mat& rgb)
 {
 	auto pixel = rgb.getDataPtr<uint8_t(*)[3]>();
 
-	Mat yuv = YUVData(rgb.getRow(), rgb.getCol());
+	Mat yuv = Mat(rgb.getRow(), rgb.getCol(), sizeof(double) * 8 * 3);
 	auto yuv_pixel = yuv.getDataPtr<double(*)[3]>();
 
 	double k1 = 0.5 / 0.435, k2 = 0.5 / 0.615;
@@ -193,7 +193,7 @@ Mat convertYUVtoRGB(Mat& yuv)
 {
 	auto yuv_pixel = yuv.getDataPtr<double(*)[3]>();
 
-	Mat rgb = RGBData(yuv.getRow(), yuv.getCol(), sizeof(uint8_t) * 8 * 3);
+	Mat rgb = Mat(yuv.getRow(), yuv.getCol(), sizeof(uint8_t) * 8 * 3);
 	auto pixel = rgb.getDataPtr<uint8_t(*)[3]>();
 
 	auto rangeFrom0to255 = [](double a, double b, double c) -> double {
@@ -442,15 +442,15 @@ BitmapFile toGrayRGB(BitmapFile& bmp)
 
 BitmapFile toGrayYUV(BitmapFile& bmp)
 {
-		auto yuv_pixel = bmp.data.getDataPtr<double(*)[3]>();
-		BitmapFile bmp_8bit = build8bitBMPHead(bmp.fileHead,bmp.infoHead);
-		bmp_8bit.data = Mat(bmp.data.getRow(), bmp.data.getCol(), 8);
-		auto pixel_8bit = bmp_8bit.data.getDataPtr<uint8_t*>();
+	auto yuv_pixel = bmp.data.getDataPtr<double(*)[3]>();
+	BitmapFile bmp_8bit = build8bitBMPHead(bmp.fileHead, bmp.infoHead);
+	bmp_8bit.data = Mat(bmp.data.getRow(), bmp.data.getCol(), 8);
+	auto pixel_8bit = bmp_8bit.data.getDataPtr<uint8_t*>();
 
-		unsigned numOfPixels = bmp.data.getRow() * bmp.data.getCol();
-		for (unsigned i = 0; i < numOfPixels; ++i)
-			pixel_8bit[i] = yuv_pixel[i][2];
-		return bmp_8bit;
+	unsigned numOfPixels = bmp.data.getRow() * bmp.data.getCol();
+	for (unsigned i = 0; i < numOfPixels; ++i)
+		pixel_8bit[i] = yuv_pixel[i][2];
+	return bmp_8bit;
 }
 
 BitmapFile toGrayLab(BitmapFile& bmp)
@@ -777,4 +777,115 @@ void histogramEqualization_2(BitmapFile bmp)
 		pixel[i][2] = redLevelsMapping[pixel[i][2]];
 	}
 
+}
+
+struct TransMat TransMat::operator*(const TransMat& m) const
+{
+	TransMat newM;
+	newM.data.resize(9);
+	for (int i = 0; i < 3; ++i)
+		for (int j = 0; j < 3; ++j)
+		{
+			for (int k = 0; k < 3; ++k)
+				newM.data[i * 3 + j] += data[i * 3 + k] * m.data[k * 3 + j];
+		}
+	return newM;
+}
+
+
+TransMat translate(double x, double y)
+{
+	return TransMat{ std::vector<double>{
+		1, 0, x,
+			0, 1, y,
+			0, 0, 1 } };
+}
+
+TransMat rotate(double rad)
+{
+	return TransMat{ std::vector<double>{
+		std::cos(rad), -std::sin(rad), 0,
+			std::sin(rad), std::cos(rad), 0,
+			0, 0, 1 } };
+}
+TransMat scale(double scaleX, double scaleY)
+{
+	return TransMat{ std::vector<double>{
+		scaleX, 0, 0,
+			0, scaleY, 0,
+			0, 0, 1 } };
+}
+TransMat shear(double offsetX, double offsetY)
+{
+	return TransMat{ std::vector<double>{
+		1, offsetX, 0,
+			offsetY, 1, 0,
+			0, 0, 1 } };
+}
+TransMat mirror(double normalX, double normalY)
+{
+	return TransMat{ std::vector<double>{
+		1 - 2 * normalX * normalX, -2 * normalX * normalY, 0,
+			-2 * normalX * normalY, 1 - 2 * normalY * normalY, 0,
+	0,0,1} };
+}
+Mat geometricTransform(Mat src, TransMat& transMat)
+{
+	int minRow = 0, minCol = 0, maxRow = 0, maxCol = 0;
+	int row = src.getRow(), col = src.getCol();
+	auto posMat = new int[row * col][2];
+
+	for (int i = 0; i < col; ++i)
+		for (int j = 0; j < row; ++j)
+		{
+			int newRow = transMat.data[0] * j + transMat.data[1] * i + transMat.data[2];
+			int newCol = transMat.data[3] * j + transMat.data[4] * i + transMat.data[5];
+			if (minRow > newRow) minRow = newRow;
+			if (maxRow < newRow) maxRow = newRow;
+			if (minCol > newCol) minCol = newCol;
+			if (maxCol < newCol) maxCol = newCol;
+			posMat[i * row + j][0] = newRow;
+			posMat[i * row + j][1] = newCol;
+		}
+
+
+	int offsetMinRow = minRow < 0 ? -minRow : 0,
+		offsetMinCol = minCol < 0 ? -minCol : 0,
+		// pixel pos in array representation is in range of [0,row/col -1],
+		// thus maxRow/maxCol here starts from 0, need to add 1 to be the true size
+		offsetMaxRow = maxRow + 1 > row ? maxRow + 1 : row,
+		offsetMaxCol = maxCol + 1 > col ? maxCol + 1 : col;
+
+	Mat newMat(offsetMaxRow + offsetMinRow,
+		offsetMaxCol + offsetMinCol,
+		sizeof(uint8_t) * 8 * 3);
+
+	auto pixel = src.getDataPtr<uint8_t(*)[3]>(),
+		newPixel = newMat.getDataPtr<uint8_t(*)[3]>();
+
+	for (int i = 0; i < col; ++i)
+		for (int j = 0; j < row; ++j)
+		{
+			auto newRow = posMat[i * row + j][0] + offsetMinRow,
+				newCol = posMat[i * row + j][1] + offsetMinCol;
+			memcpy(newPixel[newCol * newMat.getRow() + newRow], pixel[i * row + j], sizeof(uint8_t) * 3);
+		}
+
+	delete[]posMat;
+
+	return newMat;
+
+}
+
+BitmapFile buildBMP(Mat mat)
+{
+	BitmapFile bmp;
+
+	bmp.data = mat;
+	bmp.fileHead = { 19778,0
+	,0,0,54 };
+	bmp.fileHead.bfSize = bmp.fileHead.bfOffBits + bmp.data.getRow() * bmp.data.getCol() * 3;
+	bmp.infoHead = { 40,bmp.data.getRow(),bmp.data.getCol(),
+	1,24,0,0,5669,5669,0,0 };
+	return bmp;
 }

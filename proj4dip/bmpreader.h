@@ -34,33 +34,19 @@ struct BitmapInfoHead
 
 class Mat
 {
-	enum class TYPE;
 
 	unsigned row, col;
 	unsigned bitPerElement;
 	unsigned size;
 	std::shared_ptr<char[]> data;
 
-	TYPE type;
 
 public:
 
-	enum class TYPE
-	{
-		DEFAULT,
-		BINARY,
-		GRAY_8BIT,
-		RGB_16,
-		RGB_24,
-		RGBA_32,
-		YUV,
-		XYZ,
-		Lab
-	};
 
-	Mat() :row(0), col(0), bitPerElement(0), size(0), data(nullptr), type(TYPE::DEFAULT) {}
+	Mat() :row(0), col(0), bitPerElement(0), size(0), data(nullptr) {}
 	Mat(unsigned row, unsigned col, unsigned bitPerElement)
-		:row(row), col(col), bitPerElement(bitPerElement), size(row* col* bitPerElement / 8), type(TYPE::DEFAULT)
+		:row(row), col(col), bitPerElement(bitPerElement), size(row* col* bitPerElement / 8)
 	{
 		//C++17 needed
 		data = std::shared_ptr<char[]>(new char[size]);
@@ -72,56 +58,20 @@ public:
 	unsigned getCol() const { return col; }
 	unsigned getBitCount() const { return bitPerElement; }
 	unsigned getSize() const { return size; }
-	void setType(TYPE t) { type = t; }
-	TYPE getType() const { return type; }
 
 	char* getRawDataPtr() { return data.get(); }
 	template <typename T> T getDataPtr() { return reinterpret_cast<T>(data.get()); }
 	void resize(unsigned row, unsigned col, unsigned bitPerElement);
 	Mat clone() const;
-	virtual  ~Mat() = default;
+	virtual ~Mat() = default;
 };
 
-class RGBData :public Mat
+struct TransMat
 {
-public:
-	RGBData() = default;
-	RGBData(unsigned row, unsigned col, unsigned bitPerElement)
-		:Mat(row, col, bitPerElement)
-	{
-		switch (bitPerElement)
-		{
-		case 2:
-			setType(TYPE::BINARY); break;
-		case 8:
-			setType(TYPE::GRAY_8BIT); break;
-		case 16:
-			setType(TYPE::RGB_16); break;
-		case 24:
-			setType(TYPE::RGB_24); break;
-		case 32:
-			setType(TYPE::RGBA_32); break;
-		default:
-			setType(TYPE::DEFAULT); break;
-		}
-	}
+	std::vector<double> data;
+	TransMat operator*(const TransMat& m) const;
 };
 
-class YUVData :public Mat
-{
-public:
-	YUVData() = default;
-	YUVData(unsigned row, unsigned col)
-		:Mat(row, col, sizeof(double) * 8 * 3)
-	{
-		setType(TYPE::YUV);
-	}
-	auto getDataPtr() ->double(*)[3]
-	{
-		return reinterpret_cast<double(*)[3]>(getRawDataPtr());
-	}
-	~YUVData() = default;
-};
 
 struct BitmapPalette
 {
@@ -189,3 +139,11 @@ void logarithmicOperationLab(BitmapFile& bmp);
 void histogramEqualization8bit(BitmapFile gray);
 void histogramEqualization(BitmapFile bmp);
 void histogramEqualization_2(BitmapFile bmp);
+
+TransMat translate(double x, double y);
+TransMat rotate(double rad);
+TransMat scale(double scaleX, double scaleY);
+TransMat shear(double offsetX, double offsetY);
+TransMat mirror(double normalX, double normalY);
+Mat geometricTransform(Mat src, TransMat& transMat);
+BitmapFile buildBMP(Mat mat);

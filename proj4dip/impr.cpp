@@ -1,13 +1,14 @@
 #include <iostream>
 #include "bmpreader.h"
 
-#define TEST_RGB_CONVERSION
-#define TEST_GRAY
-#define TEST_BINARIZATION
-#define TEST_BINARY_OPERATION
-#define TEST_HISTOGRAM_EQUALIZATION
-#define TEST_LUMINANCE_CHANGING
-#define TEST_LOGARITHMIC_OPERATION
+//#define TEST_RGB_CONVERSION
+//#define TEST_GRAY
+//#define TEST_BINARIZATION
+//#define TEST_BINARY_OPERATION
+//#define TEST_HISTOGRAM_EQUALIZATION
+//#define TEST_LUMINANCE_CHANGING
+//#define TEST_LOGARITHMIC_OPERATION
+#define TEST_GEO_TRANSFORM
 
 int main()
 {
@@ -76,7 +77,7 @@ int main()
 
 #ifdef TEST_HISTOGRAM_EQUALIZATION
 	// test histogram equalization
-	auto file_gray_histoeq = file_binary_otsu.clone();
+	auto file_gray_histoeq = file_yuv_gray.clone();
 	histogramEqualization8bit(file_gray_histoeq);
 	saveBMPFile("pxs_gray_histoeq.bmp", file_gray_histoeq);
 
@@ -123,6 +124,14 @@ int main()
 
 
 #endif
+
+
+#ifdef TEST_GEO_TRANSFORM
+	auto transmat = scale(2, 2);
+	auto file_geo_trans = buildBMP(geometricTransform(file.data, transmat));
+	saveBMPFile("pxs_geo_trans.bmp",file_geo_trans);
+#endif
+
 
 	return 0;
 }
