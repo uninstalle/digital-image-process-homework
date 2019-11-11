@@ -792,6 +792,43 @@ struct TransMat TransMat::operator*(const TransMat& m) const
 	return newM;
 }
 
+struct TransMat TransMat::invert() const
+{
+	double detA = data[0] * data[4] * data[8]
+		+ data[2] * data[3] * data[7]
+		+ data[1] * data[5] * data[6]
+		- data[2] * data[4] * data[6]
+		- data[1] * data[3] * data[8]
+		- data[0] * data[5] * data[7];
+
+	TransMat invertM;
+
+
+	for (int i = 0; i < 3; ++i)
+		for (int j = 0; j < 3; ++j)
+		{
+			double M = 0;
+			double num[4];
+			int count = 0;
+			for (int Mi = 0; Mi < 3; ++Mi)
+			{
+				if (Mi == i) continue;
+				for (int Mj = 0; Mj < 3; ++Mj)
+				{
+					if (Mj == j) continue;
+					num[count++] = data[Mi * 3 + Mj];
+				}
+			}
+			M = num[0] * num[3] - num[1] * num[2];
+			M *= (i + j) % 2 == 0 ? 1 : -1;
+			invertM.data[j * 3 + i] = M / detA;
+		}
+
+	return invertM;
+
+}
+
+
 
 TransMat translate(double x, double y)
 {
@@ -863,12 +900,73 @@ Mat geometricTransform(Mat src, TransMat& transMat)
 	auto pixel = src.getDataPtr<uint8_t(*)[3]>(),
 		newPixel = newMat.getDataPtr<uint8_t(*)[3]>();
 
+	for (int i = 0; i < newMat.getRow() * newMat.getCol(); ++i)
+		newPixel[i][0] = newPixel[i][1] = newPixel[i][2] = 0;
+
 	for (int i = 0; i < col; ++i)
 		for (int j = 0; j < row; ++j)
 		{
 			auto newRow = posMat[i * row + j][0] + offsetMinRow,
 				newCol = posMat[i * row + j][1] + offsetMinCol;
 			memcpy(newPixel[newCol * newMat.getRow() + newRow], pixel[i * row + j], sizeof(uint8_t) * 3);
+		}
+
+	//interpolation
+	TransMat invTransMat = transMat.invert();
+	for (int i = 0; i < newMat.getCol(); ++i)
+		for (int j = 0; j < newMat.getRow(); ++j)
+		{
+			if (!newPixel[i * newMat.getRow() + j][0] +
+				newPixel[i * newMat.getRow() + j][1] +
+				newPixel[i * newMat.getRow() + j][2] == 0)
+				continue;
+
+			// when building the new image, the size of the image is adjusted to suit the new image
+			// but the coordinate of pixel adds an offset to fit in [0,+inf]
+			// To calculate the original coordinate, this offset must be removed
+			double srcRow = invTransMat.data[0] * (j - offsetMinRow) + invTransMat.data[1] * (i - offsetMinCol) + invTransMat.data[2];
+			double srcCol = invTransMat.data[3] * (j - offsetMinRow) + invTransMat.data[4] * (i - offsetMinCol) + invTransMat.data[5];
+
+			if (srcRow<0 || srcCol<0 || srcRow>src.getRow() - 1 || srcCol>src.getCol() - 1)
+				continue;
+
+			int srcRowFloor = std::floor(srcRow), srcRowCeil = std::ceil(srcRow),
+				srcColFloor = std::floor(srcCol), srcColCeil = std::ceil(srcCol);
+			/*  RowFl     Row     RowCe
+			 *   . ------- . ----- .  ColCe
+			 *   |         |       |
+			 *   |         |       |
+			 *   .         .       .  Col
+			 *   |         |       |
+			 *   |         |       |
+			 *   |         |       |
+			 *   . ------- . ----- .  ColFl
+			 *   <------- 1 ------->
+			 */
+
+			 // when srcRow or srcCol can be accurately located,
+			 // the interpolation calculation leads to 0, which is incorrect,
+			 // this step fixes the calculation.
+			if (srcRowFloor == srcRowCeil) srcRowCeil++;
+			if (srcColFloor == srcColCeil) srcColCeil++;
+
+			uint8_t colFloor[3] = {
+				(srcRow - srcRowFloor) * pixel[srcColFloor * row + srcRowCeil][0] + (srcRowCeil - srcRow) * pixel[srcColFloor * row + srcRowFloor][0],
+				(srcRow - srcRowFloor) * pixel[srcColFloor * row + srcRowCeil][1] + (srcRowCeil - srcRow) * pixel[srcColFloor * row + srcRowFloor][1],
+				(srcRow - srcRowFloor) * pixel[srcColFloor * row + srcRowCeil][2] + (srcRowCeil - srcRow) * pixel[srcColFloor * row + srcRowFloor][2]
+			};
+			uint8_t colCeil[3] = {
+				(srcRow - srcRowFloor) * pixel[srcColCeil * row + srcRowCeil][0] + (srcRowCeil - srcRow) * pixel[srcColCeil * row + srcRowFloor][0],
+				(srcRow - srcRowFloor) * pixel[srcColCeil * row + srcRowCeil][1] + (srcRowCeil - srcRow) * pixel[srcColCeil * row + srcRowFloor][1],
+				(srcRow - srcRowFloor) * pixel[srcColCeil * row + srcRowCeil][2] + (srcRowCeil - srcRow) * pixel[srcColCeil * row + srcRowFloor][2]
+			};
+			uint8_t interpolatePixel[3] = {
+				(srcCol - srcColFloor) * colCeil[0] + (srcColCeil - srcCol) * colFloor[0],
+				(srcCol - srcColFloor) * colCeil[1] + (srcColCeil - srcCol) * colFloor[1],
+				(srcCol - srcColFloor) * colCeil[2] + (srcColCeil - srcCol) * colFloor[2]
+			};
+
+			memcpy(newPixel[i * newMat.getRow() + j], interpolatePixel, sizeof(uint8_t) * 3);
 		}
 
 	delete[]posMat;

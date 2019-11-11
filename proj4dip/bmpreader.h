@@ -70,6 +70,9 @@ struct TransMat
 {
 	std::vector<double> data;
 	TransMat operator*(const TransMat& m) const;
+	TransMat invert() const;
+	TransMat() { data.resize(9); }
+	TransMat(std::vector<double> v):data(v) {}
 };
 
 

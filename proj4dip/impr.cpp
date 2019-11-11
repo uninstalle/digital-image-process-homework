@@ -127,7 +127,8 @@ int main()
 
 
 #ifdef TEST_GEO_TRANSFORM
-	auto transmat = scale(2, 2);
+	auto transmat = rotate(3.1415926/4);
+	transmat = scale(2, 2) *transmat ;
 	auto file_geo_trans = buildBMP(geometricTransform(file.data, transmat));
 	saveBMPFile("pxs_geo_trans.bmp",file_geo_trans);
 #endif
