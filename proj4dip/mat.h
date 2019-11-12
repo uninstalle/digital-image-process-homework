@@ -72,7 +72,6 @@ void changeLuminanceYUV(double deltaValue, Mat& yuv);
 void changeLuminanceLab(double deltaValue, Mat& lab);
 
 
-
 void binarizeGray(uint8_t threshold, Mat& gray);
 uint8_t generateThreshold(Mat& gray);
 uint8_t generateThreshold_Otsu(Mat& gray);
@@ -91,4 +90,4 @@ TransMat rotate(double rad);
 TransMat scale(double scaleX, double scaleY);
 TransMat shear(double offsetX, double offsetY);
 TransMat mirror(double normalX, double normalY);
-Mat geometricTransform(Mat src, TransMat& transMat);
+Mat geometricTransform(Mat src, TransMat& transMat, bool fitInSize = false);

@@ -1,6 +1,17 @@
 #include <string>
 #include "mat.h"
 
+#define PI 3.1415926535
+
+double rangeFrom0to255(double n)
+{
+	if (n > 255)
+		return 255;
+	else if (n < 0)
+		return 0;
+	else
+		return n;
+};
 
 Mat convertRGBtoYUV(Mat& rgb)
 {
@@ -35,14 +46,7 @@ Mat convertYUVtoRGB(Mat& yuv)
 	Mat rgb = Mat(yuv.getRow(), yuv.getCol(), sizeof(uint8_t) * 8 * 3);
 	auto pixel = rgb.getDataPtr<uint8_t(*)[3]>();
 
-	auto rangeFrom0to255 = [](double a, double b, double c) -> double {
-		if ((a + b + c) > 255)
-			return 255;
-		else if ((a + b + c) < 0)
-			return 0;
-		else
-			return a + b + c;
-	};
+
 	double k1 = 0.435 / 0.5, k2 = 0.615 / 0.5;
 
 	unsigned numOfPixels = yuv.getRow() * yuv.getCol();
@@ -53,9 +57,9 @@ Mat convertYUVtoRGB(Mat& yuv)
 			y = yuv_pixel[i][2];
 
 
-		uint8_t r = rangeFrom0to255(y, -0.00004 * u, 1.139828 * v),
-			g = rangeFrom0to255(0.999605 * y, -0.395414 * u, -0.5805 * v),
-			b = rangeFrom0to255(1.002036 * y, 2.036137 * u, -0.000482 * v);
+		uint8_t r = rangeFrom0to255(y + -0.00004 * u + 1.139828 * v),
+			g = rangeFrom0to255(0.999605 * y + -0.395414 * u + -0.5805 * v),
+			b = rangeFrom0to255(1.002036 * y + 2.036137 * u + -0.000482 * v);
 
 		pixel[i][0] = b;
 		pixel[i][1] = g;
@@ -588,7 +592,7 @@ TransMat mirror(double normalX, double normalY)
 // interpolatedPixel: store the interpolation result
 void nearestInterpolate(uint8_t(*pixel)[3], double srcRow, double srcCol, int row, uint8_t* interpolatedPixel)
 {
-	int rowRound = std::round(srcRow), colRound = std::round(srcCol);
+	int rowRound = srcRow + 0.5, colRound = srcCol + 0.5;
 
 	for (int iChannel = 0; iChannel < 3; ++iChannel)
 		interpolatedPixel[iChannel] = pixel[colRound * row + rowRound][iChannel];
@@ -596,12 +600,19 @@ void nearestInterpolate(uint8_t(*pixel)[3], double srcRow, double srcCol, int ro
 
 void bilinearInterpolate(uint8_t(*pixel)[3], double srcRow, double srcCol, int row, uint8_t* interpolatedPixel)
 {
-	int rowFloor = std::floor(srcRow), srcRowCeil = std::ceil(srcRow),
-		colFloor = std::floor(srcCol), srcColCeil = std::ceil(srcCol);
-	auto p1 = pixel[srcColCeil * row + srcRowCeil],
-		p2 = pixel[srcColCeil * row + rowFloor],
+	int rowFloor = std::floor(srcRow), rowCeil = std::ceil(srcRow),
+		colFloor = std::floor(srcCol), colCeil = std::ceil(srcCol);
+
+	// when srcRow or srcCol can be accurately located,
+	// the interpolation calculation leads to 0, which is incorrect,
+	// this step fixes the calculation.
+	if (rowFloor == rowCeil) rowCeil++;
+	if (colFloor == colCeil) colCeil++;
+
+	auto p1 = pixel[colCeil * row + rowCeil],
+		p2 = pixel[colCeil * row + rowFloor],
 		p3 = pixel[colFloor * row + rowFloor],
-		p4 = pixel[colFloor * row + srcRowCeil];
+		p4 = pixel[colFloor * row + rowCeil];
 
 	/*  RowFl     Row     RowCe
 	 *   . ------- . ----- .  ColCe
@@ -615,28 +626,58 @@ void bilinearInterpolate(uint8_t(*pixel)[3], double srcRow, double srcCol, int r
 	 *   <------- 1 ------->
 	 */
 
-	 // when srcRow or srcCol can be accurately located,
-	 // the interpolation calculation leads to 0, which is incorrect,
-	 // this step fixes the calculation.
-	if (rowFloor == srcRowCeil) srcRowCeil++;
-	if (colFloor == srcColCeil) srcColCeil++;
-
 
 
 	for (int iChannel = 0; iChannel < 3; ++iChannel)
 	{
-		double pColFloor = (srcRow - rowFloor) * p4[iChannel] + (srcRowCeil - srcRow) * p3[iChannel];
-		double pColCeil = (srcRow - rowFloor) * p1[iChannel] + (srcRowCeil - srcRow) * p2[iChannel];
-		interpolatedPixel[iChannel] = (srcCol - colFloor) * pColCeil + (srcColCeil - srcCol) * pColFloor;
+		double pColFloor = (srcRow - rowFloor) * p4[iChannel] + (rowCeil - srcRow) * p3[iChannel];
+		double pColCeil = (srcRow - rowFloor) * p1[iChannel] + (rowCeil - srcRow) * p2[iChannel];
+		interpolatedPixel[iChannel] = (srcCol - colFloor) * pColCeil + (colCeil - srcCol) * pColFloor;
 	}
+}
+
+double lanczosFunction(double x, int a)
+{
+	if (x == 0) return 1;
+	if (std::abs(x) >= a) return 0;
+	return a * std::sin(PI * x) * std::sin(PI * x / a) / (PI * PI * x * x);
 }
 
 void lanczosInterpolate(uint8_t(*pixel)[3], double srcRow, double srcCol, int row, uint8_t* interpolatedPixel)
 {
+	// a = 2 or a = 3
+	int a = 2;
 
+	int row_s[6];
+	int col_s[6];
+
+	for (int i = 0; i < a * 2; ++i)
+	{
+		row_s[i] = int(srcRow) - a + i + 1;
+		col_s[i] = int(srcCol) - a + i + 1;
+	}
+
+
+	//if (srcRow < 1 || srcCol < 1) return;
+
+
+	for (int iChannel = 0; iChannel < 3; ++iChannel)
+	{
+		double In_x[6] = { 0 };
+		double In_y = 0;
+		for (int i = 0; i < 2 * a; ++i)
+		{
+			for (int j = 0; j < 2 * a; ++j)
+				In_x[i] += lanczosFunction(srcRow - row_s[j], a) * pixel[col_s[i] * row + row_s[j]][iChannel];
+			In_y += lanczosFunction(srcCol - col_s[i], a) * In_x[i];
+		}
+		interpolatedPixel[iChannel] = rangeFrom0to255(In_y);
+	}
 }
 
-Mat geometricTransform(Mat src, TransMat& transMat)
+// when fitInSize is true, the size of the image will be adjusted to just fit in
+// the new image with no extra black edge
+Mat geometricTransform(Mat src, TransMat& transMat, bool fitInSize)
 {
 	int minRow = 0, minCol = 0, maxRow = 0, maxCol = 0;
 	int row = src.getRow(), col = src.getCol();
@@ -645,8 +686,20 @@ Mat geometricTransform(Mat src, TransMat& transMat)
 	for (int i = 0; i < col; ++i)
 		for (int j = 0; j < row; ++j)
 		{
-			int newRow = transMat.data[0] * j + transMat.data[1] * i + transMat.data[2];
-			int newCol = transMat.data[3] * j + transMat.data[4] * i + transMat.data[5];
+			// pixels are blocks.
+			// for example, 4*1 pixels lines like
+			// [0] [1] [2] [3]
+			// this is not an axis starts from 0 having 3 blocks,
+			// but 4 blocks lined up.
+			// when performing geometric transforming, if using the array
+			// representation, for example, performing a 2x scale will produce
+			// a 3*2=6 maximum pixel block cursor, but the true maximum
+			// pos should be 4*2-1=7, having 8 blocks in all.
+			// thus +1 before matrix transformation, and -1 to convey it to
+			// array representation. +0.5 for rounding.
+			
+			int newRow = transMat.data[0] * (j + 1) + transMat.data[1] * (i + 1) + transMat.data[2] - 1 + 0.5;
+			int newCol = transMat.data[3] * (j + 1) + transMat.data[4] * (i + 1) + transMat.data[5] - 1 + 0.5;
 			if (minRow > newRow) minRow = newRow;
 			if (maxRow < newRow) maxRow = newRow;
 			if (minCol > newCol) minCol = newCol;
@@ -655,13 +708,24 @@ Mat geometricTransform(Mat src, TransMat& transMat)
 			posMat[i * row + j][1] = newCol;
 		}
 
+	int offsetMinRow, offsetMinCol, offsetMaxRow, offsetMaxCol;
 
-	int offsetMinRow = minRow < 0 ? -minRow : 0,
-		offsetMinCol = minCol < 0 ? -minCol : 0,
+	if (!fitInSize)
+	{
+		offsetMinRow = minRow < 0 ? -minRow : 0;
+		offsetMinCol = minCol < 0 ? -minCol : 0;
 		// pixel pos in array representation is in range of [0,row/col -1],
 		// thus maxRow/maxCol here starts from 0, need to add 1 to be the true size
-		offsetMaxRow = maxRow + 1 > row ? maxRow + 1 : row,
+		offsetMaxRow = maxRow + 1 > row ? maxRow + 1 : row;
 		offsetMaxCol = maxCol + 1 > col ? maxCol + 1 : col;
+	}
+	else
+	{
+		offsetMinRow = -minRow;
+		offsetMinCol = -minCol;
+		offsetMaxRow = maxRow + 1;
+		offsetMaxCol = maxCol + 1;
+	}
 
 	Mat newMat(offsetMaxRow + offsetMinRow,
 		offsetMaxCol + offsetMinCol,
@@ -673,29 +737,33 @@ Mat geometricTransform(Mat src, TransMat& transMat)
 	for (int i = 0; i < newMat.getRow() * newMat.getCol(); ++i)
 		newPixel[i][0] = newPixel[i][1] = newPixel[i][2] = 0;
 
-	for (int i = 0; i < col; ++i)
+	/*for (int i = 0; i < col; ++i)
 		for (int j = 0; j < row; ++j)
 		{
 			auto newRow = posMat[i * row + j][0] + offsetMinRow,
 				newCol = posMat[i * row + j][1] + offsetMinCol;
 			memcpy(newPixel[newCol * newMat.getRow() + newRow], pixel[i * row + j], sizeof(uint8_t) * 3);
-		}
+		}*/
 
 	//interpolation
+	
 	TransMat invTransMat = transMat.invert();
 	for (int i = 0; i < newMat.getCol(); ++i)
 		for (int j = 0; j < newMat.getRow(); ++j)
 		{
-			if (!newPixel[i * newMat.getRow() + j][0] +
-				newPixel[i * newMat.getRow() + j][1] +
-				newPixel[i * newMat.getRow() + j][2] == 0)
-				continue;
 
 			// when building the new image, the size of the image is adjusted to suit the new image
 			// but the coordinate of pixel adds an offset to fit in [0,+inf)
 			// To calculate the original coordinate, this offset must be removed
-			double srcRow = invTransMat.data[0] * (j - offsetMinRow) + invTransMat.data[1] * (i - offsetMinCol) + invTransMat.data[2];
-			double srcCol = invTransMat.data[3] * (j - offsetMinRow) + invTransMat.data[4] * (i - offsetMinCol) + invTransMat.data[5];
+			
+			double srcRow = invTransMat.data[0] * (j - offsetMinRow + 1) + invTransMat.data[1] * (i - offsetMinCol + 1) + invTransMat.data[2] - 1;
+			double srcCol = invTransMat.data[3] * (j - offsetMinRow + 1) + invTransMat.data[4] * (i - offsetMinCol + 1) + invTransMat.data[5] - 1;
+
+
+			if (srcRow >= -0.5 && srcRow < 0)
+				srcRow = 0;
+			if (srcCol >= -0.5 && srcCol < 0)
+				srcCol = 0;
 
 			if (srcRow<0 || srcCol<0 || srcRow>src.getRow() - 1 || srcCol>src.getCol() - 1)
 				continue;
@@ -703,8 +771,6 @@ Mat geometricTransform(Mat src, TransMat& transMat)
 			uint8_t interpolatedPixel[3];
 
 			bilinearInterpolate(pixel, srcRow, srcCol, row, interpolatedPixel);
-
-
 
 			memcpy(newPixel[i * newMat.getRow() + j], interpolatedPixel, sizeof(uint8_t) * 3);
 		}
