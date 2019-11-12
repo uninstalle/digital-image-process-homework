@@ -1,5 +1,6 @@
 #include <iostream>
-#include "bmpreader.h"
+#include "mat.h"
+#include "bmp.h"
 
 //#define TEST_RGB_CONVERSION
 //#define TEST_GRAY
@@ -51,8 +52,8 @@ int main()
 	// test binarization
 	auto file_binary = file_yuv_gray.clone();
 	auto file_binary_otsu = file_yuv_gray.clone();
-	binarize8BitFile(generateThreshold(file_binary), file_binary);
-	binarize8BitFile(generateThreshold_Otsu(file_binary_otsu), file_binary_otsu);
+	binarizeGray(generateThreshold(file_binary.data), file_binary.data);
+	binarizeGray(generateThreshold_Otsu(file_binary_otsu.data), file_binary_otsu.data);
 	saveBMPFile("pxs_binary.bmp", file_binary);
 	saveBMPFile("pxs_binary_otsu.bmp", file_binary_otsu);
 
@@ -78,13 +79,13 @@ int main()
 #ifdef TEST_HISTOGRAM_EQUALIZATION
 	// test histogram equalization
 	auto file_gray_histoeq = file_yuv_gray.clone();
-	histogramEqualization8bit(file_gray_histoeq);
+	histogramEqualizationGray(file_gray_histoeq.data);
 	saveBMPFile("pxs_gray_histoeq.bmp", file_gray_histoeq);
 
 	auto file_histoeq_1 = file.clone();
 	auto file_histoeq_2 = file.clone();
-	histogramEqualization(file_histoeq_1);
-	histogramEqualization_2(file_histoeq_2);
+	histogramEqualization(file_histoeq_1.data);
+	histogramEqualization_2(file_histoeq_2.data);
 	saveBMPFile("pxs_histoeq_1.bmp", file_histoeq_1);
 	saveBMPFile("pxs_histoeq_2.bmp", file_histoeq_2);
 #endif
@@ -112,12 +113,12 @@ int main()
 #ifdef TEST_LOGARITHMIC_OPERATION
 	// test logarithmic operation
 	auto file_yuv_logop = file_yuv_backup.clone();
-	logarithmicOperationYUV(file_yuv_logop);
+	logarithmicOperationYUV(file_yuv_logop.data);
 	file_yuv_logop.data = convertYUVtoRGB(file_yuv_logop.data);
 	saveBMPFile("pxs_yuv_logop.bmp", file_yuv_logop);
 	
 	auto file_lab_logop = file_lab_backup.clone();
-	logarithmicOperationLab(file_lab_logop);
+	logarithmicOperationLab(file_lab_logop.data);
 	file_lab_logop.data = convertLabtoRGB(file_lab_logop.data);
 	saveBMPFile("pxs_lab_logop.bmp", file_lab_logop);
 #endif
@@ -127,8 +128,8 @@ int main()
 
 
 #ifdef TEST_GEO_TRANSFORM
-	auto transmat = rotate(3.1415926/4);
-	transmat = scale(2, 2) *transmat ;
+	auto transmat = rotate(1);
+	transmat = scale(2.5, 2.5) * translate(50, 50) * transmat;
 	auto file_geo_trans = buildBMP(geometricTransform(file.data, transmat));
 	saveBMPFile("pxs_geo_trans.bmp",file_geo_trans);
 #endif

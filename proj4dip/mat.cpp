@@ -1,167 +1,6 @@
-#include <fstream>
 #include <string>
-#include "bmpreader.h"
+#include "mat.h"
 
-
-std::istream& operator>>(std::istream& is, BitmapFileHead& bfh)
-{
-	is.read(reinterpret_cast<char*>(&bfh.bfType), sizeof(uint16_t));
-	is.read(reinterpret_cast<char*>(&bfh.bfSize), sizeof(uint32_t));
-	is.read(reinterpret_cast<char*>(&bfh.bfReserved1), sizeof(uint16_t));
-	is.read(reinterpret_cast<char*>(&bfh.bfReserved2), sizeof(uint16_t));
-	is.read(reinterpret_cast<char*>(&bfh.bfOffBits), sizeof(uint32_t));
-	return is;
-}
-
-std::ostream& operator<<(std::ostream& os, BitmapFileHead& bfh)
-{
-	os.write(reinterpret_cast<char*>(&bfh.bfType), sizeof(uint16_t));
-	os.write(reinterpret_cast<char*>(&bfh.bfSize), sizeof(uint32_t));
-	os.write(reinterpret_cast<char*>(&bfh.bfReserved1), sizeof(uint16_t));
-	os.write(reinterpret_cast<char*>(&bfh.bfReserved2), sizeof(uint16_t));
-	os.write(reinterpret_cast<char*>(&bfh.bfOffBits), sizeof(uint32_t));
-	return os;
-}
-
-std::istream& operator>>(std::istream& is, BitmapInfoHead& bih)
-{
-	is.read(reinterpret_cast<char*>(&bih.biSize), sizeof(uint32_t));
-	is.read(reinterpret_cast<char*>(&bih.biWidth), sizeof(uint32_t));
-	is.read(reinterpret_cast<char*>(&bih.biHeight), sizeof(uint32_t));
-	is.read(reinterpret_cast<char*>(&bih.biPlanes), sizeof(uint16_t));
-	is.read(reinterpret_cast<char*>(&bih.biBitCount), sizeof(uint16_t));
-	is.read(reinterpret_cast<char*>(&bih.biCompression), sizeof(uint32_t));
-	is.read(reinterpret_cast<char*>(&bih.biSizeImage), sizeof(uint32_t));
-	is.read(reinterpret_cast<char*>(&bih.biXPelsPerMeter), sizeof(uint32_t));
-	is.read(reinterpret_cast<char*>(&bih.biYPelsPerMeter), sizeof(uint32_t));
-	is.read(reinterpret_cast<char*>(&bih.biClrUsed), sizeof(uint32_t));
-	is.read(reinterpret_cast<char*>(&bih.biClrImportant), sizeof(uint32_t));
-	return is;
-}
-
-std::ostream& operator<<(std::ostream& os, BitmapInfoHead& bih)
-{
-	os.write(reinterpret_cast<char*>(&bih.biSize), sizeof(uint32_t));
-	os.write(reinterpret_cast<char*>(&bih.biWidth), sizeof(uint32_t));
-	os.write(reinterpret_cast<char*>(&bih.biHeight), sizeof(uint32_t));
-	os.write(reinterpret_cast<char*>(&bih.biPlanes), sizeof(uint16_t));
-	os.write(reinterpret_cast<char*>(&bih.biBitCount), sizeof(uint16_t));
-	os.write(reinterpret_cast<char*>(&bih.biCompression), sizeof(uint32_t));
-	os.write(reinterpret_cast<char*>(&bih.biSizeImage), sizeof(uint32_t));
-	os.write(reinterpret_cast<char*>(&bih.biXPelsPerMeter), sizeof(uint32_t));
-	os.write(reinterpret_cast<char*>(&bih.biYPelsPerMeter), sizeof(uint32_t));
-	os.write(reinterpret_cast<char*>(&bih.biClrUsed), sizeof(uint32_t));
-	os.write(reinterpret_cast<char*>(&bih.biClrImportant), sizeof(uint32_t));
-	return os;
-}
-
-std::ostream& operator<<(std::ostream& os, BitmapPalette& bp)
-{
-	unsigned dataSize = bp.data.getSize();
-	os.write(bp.data.getRawDataPtr(), dataSize);
-	return os;
-}
-
-void Mat::resize(unsigned row, unsigned col, unsigned bitPerElement)
-{
-	this->row = row;
-	this->col = col;
-	this->bitPerElement = bitPerElement;
-	this->size = row * col * bitPerElement / 8;
-	data = std::shared_ptr<char[]>(new char[size]);
-}
-
-Mat Mat::clone() const
-{
-	Mat clonedMat(row, col, bitPerElement);
-	memcpy(clonedMat.getRawDataPtr(), data.get(), size);
-	return clonedMat;
-}
-
-BitmapPalette BitmapPalette::clone() const
-{
-	BitmapPalette clonedBitmapPalette;
-	clonedBitmapPalette.index = index;
-	clonedBitmapPalette.data = data.clone();
-	return clonedBitmapPalette;
-}
-
-BitmapFile BitmapFile::clone() const
-{
-	BitmapFile clonedBitmapFile{ fileHead, infoHead, palette.clone(), data.clone() };
-	return clonedBitmapFile;
-}
-
-
-BitmapFile loadBMPFile(std::string filename)
-{
-	std::fstream BMPfs(filename, std::ios::binary | std::ios::in);
-	if (!BMPfs)
-		throw std::runtime_error("Open BMP file failed.");
-
-	BitmapFile bmp;
-	BMPfs >> bmp.fileHead;
-	BMPfs >> bmp.infoHead;
-	if (bmp.infoHead.biClrUsed)
-	{
-		bmp.palette = BitmapPalette(bmp.infoHead.biClrUsed);
-		BMPfs.read(bmp.palette.data.getRawDataPtr(), bmp.palette.data.getSize());
-	}
-
-	bmp.data = Mat(bmp.infoHead.biWidth, bmp.infoHead.biHeight, bmp.infoHead.biBitCount);
-
-	unsigned alignedByteWidth = (bmp.infoHead.biWidth * bmp.infoHead.biBitCount / 8 + 3) / 4 * 4;
-	unsigned byteWidth = bmp.infoHead.biWidth * bmp.infoHead.biBitCount / 8;
-	//not aligned, using the easy way to write
-	if (alignedByteWidth == byteWidth)
-		BMPfs.read(bmp.data.getRawDataPtr(), bmp.data.getSize());
-	else
-	{
-		char* zeroBuffer = new char[4];
-
-		char* dp = bmp.data.getRawDataPtr();
-		for (unsigned i = 0; i < bmp.infoHead.biHeight; ++i)
-		{
-			BMPfs.read(dp, byteWidth);
-			BMPfs.read(zeroBuffer, alignedByteWidth - byteWidth);
-			dp += byteWidth / sizeof(char);
-		}
-		delete[]zeroBuffer;
-	}
-
-	BMPfs.close();
-	return bmp;
-}
-
-
-void saveBMPFile(std::string filename, BitmapFile& bmp)
-{
-	std::fstream BMPfs(filename, std::ios::binary | std::ios::out);
-	if (!BMPfs)
-		throw std::runtime_error("Open BMP file failed.");
-	BMPfs << bmp.fileHead;
-	BMPfs << bmp.infoHead;
-	BMPfs << bmp.palette;
-
-	unsigned alignedByteWidth = (bmp.infoHead.biWidth * bmp.infoHead.biBitCount / 8 + 3) / 4 * 4;
-	unsigned byteWidth = bmp.infoHead.biWidth * bmp.infoHead.biBitCount / 8;
-	//not aligned, using the easy way to write
-	if (alignedByteWidth == byteWidth)
-		BMPfs.write(bmp.data.getRawDataPtr(), bmp.data.getSize());
-	else
-	{
-		char zero[4] = { 0,0,0,0 };
-
-		char* dp = bmp.data.getRawDataPtr();
-		for (unsigned i = 0; i < bmp.infoHead.biHeight; ++i)
-		{
-			BMPfs.write(dp, byteWidth);
-			BMPfs.write(zero, alignedByteWidth - byteWidth);
-			dp += byteWidth / sizeof(char);
-		}
-	}
-	BMPfs.close();
-}
 
 Mat convertRGBtoYUV(Mat& rgb)
 {
@@ -365,108 +204,6 @@ Mat convertLabtoRGB(Mat& lab)
 	return convertXYZtoRGB(m);
 }
 
-static BitmapPalette GrayPalette;
-static BitmapPalette BinaryPalette;
-
-struct BitmapPalette getGrayPalette()
-{
-	if (!GrayPalette.index) {
-		BitmapPalette palette(256);
-		auto pixel = palette.data.getDataPtr<uint8_t(*)[4]>();
-		for (int i = 0; i < 256; ++i)
-		{
-			pixel[i][0] = pixel[i][1] = pixel[i][2] = i;
-			pixel[i][3] = 0;
-		}
-		GrayPalette = palette;
-	}
-	return GrayPalette;
-}
-
-struct BitmapPalette getBinaryPalette()
-{
-	if (!BinaryPalette.index)
-	{
-		BitmapPalette palette(2);
-		auto pixel = palette.data.getDataPtr<uint8_t(*)[4]>();
-		pixel[0][0] = pixel[0][1] = pixel[0][2] = 0;
-		pixel[1][0] = pixel[1][1] = pixel[1][2] = 255;
-		BinaryPalette = palette;
-	}
-	return BinaryPalette;
-}
-
-BitmapFile build8bitBMPHead(BitmapFileHead fh, BitmapInfoHead ih)
-{
-	BitmapFile bmp;
-	bmp.fileHead = fh;
-	bmp.infoHead = ih;
-	bmp.fileHead.bfOffBits = 14 + 40 + 256 * 4;
-	bmp.fileHead.bfSize = bmp.fileHead.bfOffBits + bmp.data.getRow() * bmp.data.getCol();
-	bmp.infoHead.biBitCount = 8;
-	bmp.infoHead.biClrUsed = 256;
-	bmp.infoHead.biSizeImage = 0;
-	bmp.palette = getGrayPalette();
-	return bmp;
-}
-
-BitmapFile buildbinaryBMPHead(BitmapFileHead fh, BitmapInfoHead ih)
-{
-	BitmapFile bmp;
-	bmp.fileHead = fh;
-	bmp.infoHead = ih;
-	bmp.fileHead.bfOffBits = 14 + 40 + 2 * 4;
-	bmp.fileHead.bfSize = bmp.fileHead.bfOffBits + bmp.data.getRow() * bmp.data.getCol() / 8;
-	bmp.infoHead.biBitCount = 1;
-	bmp.infoHead.biClrUsed = 2;
-	bmp.infoHead.biSizeImage = 0;
-	bmp.palette = getBinaryPalette();
-	return bmp;
-}
-
-BitmapFile toGrayRGB(BitmapFile& bmp)
-{
-	auto pixel = bmp.data.getDataPtr<uint8_t(*)[3]>();
-	BitmapFile bmp_8bit = build8bitBMPHead(bmp.fileHead, bmp.infoHead);
-	bmp_8bit.data = Mat(bmp.data.getRow(), bmp.data.getCol(), 8);
-	auto pixel_8bit = bmp_8bit.data.getDataPtr<uint8_t*>();
-
-	unsigned numOfPixels = bmp.data.getRow() * bmp.data.getCol();
-	for (unsigned i = 0; i < numOfPixels; ++i) {
-		unsigned char gray = unsigned char(
-			pixel[i][2] * 0.299 + pixel[i][1] * 0.587 + pixel[i][0] * 0.114);
-		pixel_8bit[i] = gray;
-	}
-	return bmp_8bit;
-}
-
-BitmapFile toGrayYUV(BitmapFile& bmp)
-{
-	auto yuv_pixel = bmp.data.getDataPtr<double(*)[3]>();
-	BitmapFile bmp_8bit = build8bitBMPHead(bmp.fileHead, bmp.infoHead);
-	bmp_8bit.data = Mat(bmp.data.getRow(), bmp.data.getCol(), 8);
-	auto pixel_8bit = bmp_8bit.data.getDataPtr<uint8_t*>();
-
-	unsigned numOfPixels = bmp.data.getRow() * bmp.data.getCol();
-	for (unsigned i = 0; i < numOfPixels; ++i)
-		pixel_8bit[i] = yuv_pixel[i][2];
-	return bmp_8bit;
-}
-
-BitmapFile toGrayLab(BitmapFile& bmp)
-{
-	auto lab_pixel = bmp.data.getDataPtr<double(*)[3]>();
-	BitmapFile bmp_8bit = build8bitBMPHead(bmp.fileHead, bmp.infoHead);
-	bmp_8bit.data = Mat(bmp.data.getRow(), bmp.data.getCol(), 8);
-	auto pixel_8bit = bmp_8bit.data.getDataPtr<uint8_t*>();
-
-	unsigned numOfPixels = bmp.data.getRow() * bmp.data.getCol();
-	for (unsigned i = 0; i < numOfPixels; ++i)
-		pixel_8bit[i] = lab_pixel[i][2] * 2.55;
-	return bmp_8bit;
-}
-
-
 void changeLuminanceYUV(double deltaValue, Mat& yuv)
 {
 	auto yuv_pixel = yuv.getDataPtr<double(*)[3]>();
@@ -490,11 +227,11 @@ void changeLuminanceLab(double deltaValue, Mat& lab)
 	}
 }
 
-void binarize8BitFile(uint8_t threshold, BitmapFile gray)
+void binarizeGray(uint8_t threshold, Mat& gray)
 {
-	auto pixel_8bit = gray.data.getDataPtr<uint8_t*>();
+	auto pixel_8bit = gray.getDataPtr<uint8_t*>();
 
-	unsigned numOfPixels = gray.data.getRow() * gray.data.getCol();
+	unsigned numOfPixels = gray.getRow() * gray.getCol();
 	for (unsigned i = 0; i < numOfPixels; ++i)
 	{
 
@@ -506,10 +243,10 @@ void binarize8BitFile(uint8_t threshold, BitmapFile gray)
 	}
 }
 
-uint8_t generateThreshold(BitmapFile gray)
+uint8_t generateThreshold(Mat& gray)
 {
-	auto pixel_8bit = gray.data.getDataPtr<uint8_t*>();
-	unsigned numOfPixels = gray.data.getRow() * gray.data.getCol();
+	auto pixel_8bit = gray.getDataPtr<uint8_t*>();
+	unsigned numOfPixels = gray.getRow() * gray.getCol();
 
 
 	int threshold = pixel_8bit[0];
@@ -543,10 +280,10 @@ uint8_t generateThreshold(BitmapFile gray)
 	return threshold;
 }
 
-uint8_t generateThreshold_Otsu(BitmapFile gray)
+uint8_t generateThreshold_Otsu(Mat& gray)
 {
-	auto pixel_8bit = gray.data.getDataPtr<uint8_t*>();
-	unsigned numOfPixels = gray.data.getRow() * gray.data.getCol();
+	auto pixel_8bit = gray.getDataPtr<uint8_t*>();
+	unsigned numOfPixels = gray.getRow() * gray.getCol();
 
 	int grayCountTable[256] = {};
 	double grayPercentTable[256] = {};
@@ -586,16 +323,16 @@ uint8_t generateThreshold_Otsu(BitmapFile gray)
 	return threshold;
 }
 
-BitmapFile binaryImageErosionAndDilation(BitmapFile& binary, StructuringElement se, bool retErosion)
+Mat binaryImageErosionAndDilation(Mat& binary, StructuringElement se, bool retErosion)
 {
-	BitmapFile dst = binary.clone();
+	auto dst = binary.clone();
 
-	auto pixel = binary.data.getDataPtr<uint8_t*>();
-	auto dst_pixel = dst.data.getDataPtr<uint8_t*>();
+	auto pixel = binary.getDataPtr<uint8_t*>();
+	auto dst_pixel = dst.getDataPtr<uint8_t*>();
 
-	for (unsigned i = 0; i + se.col - 1 < binary.infoHead.biHeight; ++i)
+	for (unsigned i = 0; i + se.col - 1 < binary.getCol(); ++i)
 	{
-		for (unsigned j = 0; j + se.row - 1 < binary.infoHead.biWidth; ++j)
+		for (unsigned j = 0; j + se.row - 1 < binary.getRow(); ++j)
 		{
 			bool erosion = false;
 			bool dilation = false;
@@ -604,7 +341,7 @@ BitmapFile binaryImageErosionAndDilation(BitmapFile& binary, StructuringElement 
 			{
 				for (unsigned se_j = 0; se_j < se.row; ++se_j)
 				{
-					int value = pixel[(i + se_i) * binary.infoHead.biWidth + j + se_j] / 255;
+					int value = pixel[(i + se_i) * binary.getRow() + j + se_j] / 255;
 					if (se.element[se_i * se.row + se_j] && !value)
 						erosion = true;
 					if (se.element[se_i * se.row + se_j] && value)
@@ -612,9 +349,9 @@ BitmapFile binaryImageErosionAndDilation(BitmapFile& binary, StructuringElement 
 				}
 			}
 			if (retErosion)
-				dst_pixel[(i + se.originY) * binary.infoHead.biWidth + j + se.OriginX] = erosion ? 0 : 255;
+				dst_pixel[(i + se.originY) * binary.getRow() + j + se.OriginX] = erosion ? 0 : 255;
 			else
-				dst_pixel[(i + se.originY) * binary.infoHead.biWidth + j + se.OriginX] = dilation ? 255 : 0;
+				dst_pixel[(i + se.originY) * binary.getRow() + j + se.OriginX] = dilation ? 255 : 0;
 
 
 		}
@@ -623,34 +360,11 @@ BitmapFile binaryImageErosionAndDilation(BitmapFile& binary, StructuringElement 
 	return dst;
 }
 
-BitmapFile binaryImageErosion(BitmapFile binary, StructuringElement se)
-{
-	return  binaryImageErosionAndDilation(binary, se, true);
-}
 
-BitmapFile binaryImageDilation(BitmapFile binary, StructuringElement se)
+void logarithmicOperationYUV(Mat& yuv)
 {
-	return binaryImageErosionAndDilation(binary, se, false);
-}
-
-BitmapFile binaryImageOpening(BitmapFile binary, StructuringElement se)
-{
-	auto bmp = binaryImageErosion(binary, se);
-	bmp = binaryImageDilation(bmp, se);
-	return bmp;
-}
-
-BitmapFile binaryImageClosing(BitmapFile binary, StructuringElement se)
-{
-	auto bmp = binaryImageDilation(binary, se);
-	bmp = binaryImageErosion(bmp, se);
-	return bmp;
-}
-
-void logarithmicOperationYUV(BitmapFile& bmp)
-{
-	auto yuv_pixel = bmp.data.getDataPtr<double(*)[3]>();
-	unsigned numOfPixels = bmp.data.getRow() * bmp.data.getCol();
+	auto yuv_pixel = yuv.getDataPtr<double(*)[3]>();
+	unsigned numOfPixels = yuv.getRow() * yuv.getCol();
 
 	double Lmax = 0;
 
@@ -667,10 +381,10 @@ void logarithmicOperationYUV(BitmapFile& bmp)
 	}
 }
 
-void logarithmicOperationLab(BitmapFile& bmp)
+void logarithmicOperationLab(Mat& lab)
 {
-	auto lab_pixel = bmp.data.getDataPtr<double(*)[3]>();
-	unsigned numOfPixels = bmp.data.getRow() * bmp.data.getCol();
+	auto lab_pixel = lab.getDataPtr<double(*)[3]>();
+	unsigned numOfPixels = lab.getRow() * lab.getCol();
 
 	double Lmax = 0;
 
@@ -687,12 +401,12 @@ void logarithmicOperationLab(BitmapFile& bmp)
 	}
 }
 
-void histogramEqualization8bit(BitmapFile gray)
+void histogramEqualizationGray(Mat& gray)
 {
-	unsigned numOfPixels = gray.data.getRow() * gray.data.getCol();
+	unsigned numOfPixels = gray.getRow() * gray.getCol();
 	int numOfGrayLevels[256] = { 0 };
 	int grayLevelsMapping[256];
-	auto pixel = gray.data.getDataPtr<uint8_t*>();
+	auto pixel = gray.getDataPtr<uint8_t*>();
 
 	for (unsigned i = 0; i < numOfPixels; ++i)
 		numOfGrayLevels[pixel[i]]++;
@@ -709,12 +423,12 @@ void histogramEqualization8bit(BitmapFile gray)
 		pixel[i] = grayLevelsMapping[pixel[i]];
 }
 
-void histogramEqualization(BitmapFile bmp)
+void histogramEqualization(Mat& mat)
 {
-	unsigned numOfPixels = bmp.infoHead.biWidth * bmp.infoHead.biHeight;
+	unsigned numOfPixels = mat.getRow() * mat.getCol();
 	int numOfLevels[256] = { 0 };
 	int levelsMapping[256];
-	auto pixel = bmp.data.getDataPtr<uint8_t(*)[3]>();
+	auto pixel = mat.getDataPtr<uint8_t(*)[3]>();
 
 	for (unsigned i = 0; i < numOfPixels; ++i) {
 		numOfLevels[pixel[i][0]]++;
@@ -739,15 +453,14 @@ void histogramEqualization(BitmapFile bmp)
 
 }
 
-
-void histogramEqualization_2(BitmapFile bmp)
+void histogramEqualization_2(Mat& mat)
 {
-	unsigned numOfPixels = bmp.infoHead.biWidth * bmp.infoHead.biHeight;
+	unsigned numOfPixels = mat.getRow() * mat.getCol();
 	int numOfRedLevels[256] = { 0 };
 	int numOfGreenLevels[256] = { 0 };
 	int numOfBlueLevels[256] = { 0 };
 	int redLevelsMapping[256], greenLevelsMapping[256], blueLevelsMapping[256];
-	auto pixel = bmp.data.getDataPtr<uint8_t(*)[3]>();
+	auto pixel = mat.getDataPtr<uint8_t(*)[3]>();
 
 
 	for (unsigned i = 0; i < numOfPixels; ++i) {
@@ -828,8 +541,6 @@ struct TransMat TransMat::invert() const
 
 }
 
-
-
 TransMat translate(double x, double y)
 {
 	return TransMat{ std::vector<double>{
@@ -845,6 +556,7 @@ TransMat rotate(double rad)
 			std::sin(rad), std::cos(rad), 0,
 			0, 0, 1 } };
 }
+
 TransMat scale(double scaleX, double scaleY)
 {
 	return TransMat{ std::vector<double>{
@@ -852,6 +564,7 @@ TransMat scale(double scaleX, double scaleY)
 			0, scaleY, 0,
 			0, 0, 1 } };
 }
+
 TransMat shear(double offsetX, double offsetY)
 {
 	return TransMat{ std::vector<double>{
@@ -859,6 +572,7 @@ TransMat shear(double offsetX, double offsetY)
 			offsetY, 1, 0,
 			0, 0, 1 } };
 }
+
 TransMat mirror(double normalX, double normalY)
 {
 	return TransMat{ std::vector<double>{
@@ -866,6 +580,62 @@ TransMat mirror(double normalX, double normalY)
 			-2 * normalX * normalY, 1 - 2 * normalY * normalY, 0,
 	0,0,1} };
 }
+
+// pixel: pixel data pointer,
+// srcRow: calculated source pixel's row
+// srcCol: calculated source pixel's col
+// row: source image's row, using to fetch the pixel data
+// interpolatedPixel: store the interpolation result
+void nearestInterpolate(uint8_t(*pixel)[3], double srcRow, double srcCol, int row, uint8_t* interpolatedPixel)
+{
+	int rowRound = std::round(srcRow), colRound = std::round(srcCol);
+
+	for (int iChannel = 0; iChannel < 3; ++iChannel)
+		interpolatedPixel[iChannel] = pixel[colRound * row + rowRound][iChannel];
+}
+
+void bilinearInterpolate(uint8_t(*pixel)[3], double srcRow, double srcCol, int row, uint8_t* interpolatedPixel)
+{
+	int rowFloor = std::floor(srcRow), srcRowCeil = std::ceil(srcRow),
+		colFloor = std::floor(srcCol), srcColCeil = std::ceil(srcCol);
+	auto p1 = pixel[srcColCeil * row + srcRowCeil],
+		p2 = pixel[srcColCeil * row + rowFloor],
+		p3 = pixel[colFloor * row + rowFloor],
+		p4 = pixel[colFloor * row + srcRowCeil];
+
+	/*  RowFl     Row     RowCe
+	 *   . ------- . ----- .  ColCe
+	 *   | P2      |    P1 |
+	 *   |         |       |
+	 *   .         .       .  Col
+	 *   |         |       |
+	 *   |         |       |
+	 *   | P3      |    P4 |
+	 *   . ------- . ----- .  ColFl
+	 *   <------- 1 ------->
+	 */
+
+	 // when srcRow or srcCol can be accurately located,
+	 // the interpolation calculation leads to 0, which is incorrect,
+	 // this step fixes the calculation.
+	if (rowFloor == srcRowCeil) srcRowCeil++;
+	if (colFloor == srcColCeil) srcColCeil++;
+
+
+
+	for (int iChannel = 0; iChannel < 3; ++iChannel)
+	{
+		double pColFloor = (srcRow - rowFloor) * p4[iChannel] + (srcRowCeil - srcRow) * p3[iChannel];
+		double pColCeil = (srcRow - rowFloor) * p1[iChannel] + (srcRowCeil - srcRow) * p2[iChannel];
+		interpolatedPixel[iChannel] = (srcCol - colFloor) * pColCeil + (srcColCeil - srcCol) * pColFloor;
+	}
+}
+
+void lanczosInterpolate(uint8_t(*pixel)[3], double srcRow, double srcCol, int row, uint8_t* interpolatedPixel)
+{
+
+}
+
 Mat geometricTransform(Mat src, TransMat& transMat)
 {
 	int minRow = 0, minCol = 0, maxRow = 0, maxCol = 0;
@@ -922,7 +692,7 @@ Mat geometricTransform(Mat src, TransMat& transMat)
 				continue;
 
 			// when building the new image, the size of the image is adjusted to suit the new image
-			// but the coordinate of pixel adds an offset to fit in [0,+inf]
+			// but the coordinate of pixel adds an offset to fit in [0,+inf)
 			// To calculate the original coordinate, this offset must be removed
 			double srcRow = invTransMat.data[0] * (j - offsetMinRow) + invTransMat.data[1] * (i - offsetMinCol) + invTransMat.data[2];
 			double srcCol = invTransMat.data[3] * (j - offsetMinRow) + invTransMat.data[4] * (i - offsetMinCol) + invTransMat.data[5];
@@ -930,43 +700,13 @@ Mat geometricTransform(Mat src, TransMat& transMat)
 			if (srcRow<0 || srcCol<0 || srcRow>src.getRow() - 1 || srcCol>src.getCol() - 1)
 				continue;
 
-			int srcRowFloor = std::floor(srcRow), srcRowCeil = std::ceil(srcRow),
-				srcColFloor = std::floor(srcCol), srcColCeil = std::ceil(srcCol);
-			/*  RowFl     Row     RowCe
-			 *   . ------- . ----- .  ColCe
-			 *   |         |       |
-			 *   |         |       |
-			 *   .         .       .  Col
-			 *   |         |       |
-			 *   |         |       |
-			 *   |         |       |
-			 *   . ------- . ----- .  ColFl
-			 *   <------- 1 ------->
-			 */
+			uint8_t interpolatedPixel[3];
 
-			 // when srcRow or srcCol can be accurately located,
-			 // the interpolation calculation leads to 0, which is incorrect,
-			 // this step fixes the calculation.
-			if (srcRowFloor == srcRowCeil) srcRowCeil++;
-			if (srcColFloor == srcColCeil) srcColCeil++;
+			bilinearInterpolate(pixel, srcRow, srcCol, row, interpolatedPixel);
 
-			uint8_t colFloor[3] = {
-				(srcRow - srcRowFloor) * pixel[srcColFloor * row + srcRowCeil][0] + (srcRowCeil - srcRow) * pixel[srcColFloor * row + srcRowFloor][0],
-				(srcRow - srcRowFloor) * pixel[srcColFloor * row + srcRowCeil][1] + (srcRowCeil - srcRow) * pixel[srcColFloor * row + srcRowFloor][1],
-				(srcRow - srcRowFloor) * pixel[srcColFloor * row + srcRowCeil][2] + (srcRowCeil - srcRow) * pixel[srcColFloor * row + srcRowFloor][2]
-			};
-			uint8_t colCeil[3] = {
-				(srcRow - srcRowFloor) * pixel[srcColCeil * row + srcRowCeil][0] + (srcRowCeil - srcRow) * pixel[srcColCeil * row + srcRowFloor][0],
-				(srcRow - srcRowFloor) * pixel[srcColCeil * row + srcRowCeil][1] + (srcRowCeil - srcRow) * pixel[srcColCeil * row + srcRowFloor][1],
-				(srcRow - srcRowFloor) * pixel[srcColCeil * row + srcRowCeil][2] + (srcRowCeil - srcRow) * pixel[srcColCeil * row + srcRowFloor][2]
-			};
-			uint8_t interpolatePixel[3] = {
-				(srcCol - srcColFloor) * colCeil[0] + (srcColCeil - srcCol) * colFloor[0],
-				(srcCol - srcColFloor) * colCeil[1] + (srcColCeil - srcCol) * colFloor[1],
-				(srcCol - srcColFloor) * colCeil[2] + (srcColCeil - srcCol) * colFloor[2]
-			};
 
-			memcpy(newPixel[i * newMat.getRow() + j], interpolatePixel, sizeof(uint8_t) * 3);
+
+			memcpy(newPixel[i * newMat.getRow() + j], interpolatedPixel, sizeof(uint8_t) * 3);
 		}
 
 	delete[]posMat;
@@ -975,15 +715,3 @@ Mat geometricTransform(Mat src, TransMat& transMat)
 
 }
 
-BitmapFile buildBMP(Mat mat)
-{
-	BitmapFile bmp;
-
-	bmp.data = mat;
-	bmp.fileHead = { 19778,0
-	,0,0,54 };
-	bmp.fileHead.bfSize = bmp.fileHead.bfOffBits + bmp.data.getRow() * bmp.data.getCol() * 3;
-	bmp.infoHead = { 40,bmp.data.getRow(),bmp.data.getCol(),
-	1,24,0,0,5669,5669,0,0 };
-	return bmp;
-}

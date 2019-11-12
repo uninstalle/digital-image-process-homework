@@ -18,12 +18,18 @@
     <ClCompile Include="impr.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="bmpreader.cpp">
+    <ClCompile Include="bmp.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="mat.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="bmpreader.h">
+    <ClInclude Include="bmp.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="mat.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
