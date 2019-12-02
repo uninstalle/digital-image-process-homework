@@ -142,14 +142,7 @@ Mat convertXYZtoRGB(Mat& xyz)
 	Mat rgb = Mat(xyz.getRow(), xyz.getCol(), sizeof(uint8_t) * 8 * 3);
 	auto pixel = rgb.getDataPtr<uint8_t(*)[3]>();
 
-	auto rangeFrom0to255 = [](double a, double b, double c) -> double {
-		if ((a + b + c) > 255)
-			return 255;
-		else if ((a + b + c) < 0)
-			return 0;
-		else
-			return a + b + c;
-	};
+
 	double k1 = 0.950456, k2 = 1.088754;
 
 	unsigned numOfPixels = xyz.getRow() * xyz.getCol();
@@ -160,9 +153,9 @@ Mat convertXYZtoRGB(Mat& xyz)
 			x = k1 * xyz_pixel[i][2];
 
 
-		uint8_t r = rangeFrom0to255(3.240479 * x, -1.537150 * y, -0.498535 * z),
-			g = rangeFrom0to255(-0.969256 * x, 1.875992 * y, 0.041556 * z),
-			b = rangeFrom0to255(0.055648 * x, -0.204043 * y, 1.057311 * z);
+		uint8_t r = rangeFrom0to255(3.240479 * x - 1.537150 * y - 0.498535 * z),
+			g = rangeFrom0to255(-0.969256 * x + 1.875992 * y + 0.041556 * z),
+			b = rangeFrom0to255(0.055648 * x - 0.204043 * y + 1.057311 * z);
 
 		pixel[i][0] = b;
 		pixel[i][1] = g;
@@ -353,9 +346,9 @@ Mat binaryImageErosionAndDilation(Mat& binary, StructuringElement se, bool retEr
 				}
 			}
 			if (retErosion)
-				dst_pixel[(i + se.originY) * binary.getRow() + j + se.OriginX] = erosion ? 0 : 255;
+				dst_pixel[(i + se.CenterY) * binary.getRow() + j + se.CenterX] = erosion ? 0 : 255;
 			else
-				dst_pixel[(i + se.originY) * binary.getRow() + j + se.OriginX] = dilation ? 255 : 0;
+				dst_pixel[(i + se.CenterY) * binary.getRow() + j + se.CenterX] = dilation ? 255 : 0;
 
 
 		}
@@ -697,7 +690,7 @@ Mat geometricTransform(Mat src, TransMat& transMat, bool fitInSize)
 			// pos should be 4*2-1=7, having 8 blocks in all.
 			// thus +1 before matrix transformation, and -1 to convey it to
 			// array representation. +0.5 for rounding.
-			
+
 			int newRow = transMat.data[0] * (j + 1) + transMat.data[1] * (i + 1) + transMat.data[2] - 1 + 0.5;
 			int newCol = transMat.data[3] * (j + 1) + transMat.data[4] * (i + 1) + transMat.data[5] - 1 + 0.5;
 			if (minRow > newRow) minRow = newRow;
@@ -745,8 +738,8 @@ Mat geometricTransform(Mat src, TransMat& transMat, bool fitInSize)
 			memcpy(newPixel[newCol * newMat.getRow() + newRow], pixel[i * row + j], sizeof(uint8_t) * 3);
 		}*/
 
-	//interpolation
-	
+		//interpolation
+
 	TransMat invTransMat = transMat.invert();
 	for (int i = 0; i < newMat.getCol(); ++i)
 		for (int j = 0; j < newMat.getRow(); ++j)
@@ -755,14 +748,14 @@ Mat geometricTransform(Mat src, TransMat& transMat, bool fitInSize)
 			// when building the new image, the size of the image is adjusted to suit the new image
 			// but the coordinate of pixel adds an offset to fit in [0,+inf)
 			// To calculate the original coordinate, this offset must be removed
-			
+
 			double srcRow = invTransMat.data[0] * (j - offsetMinRow + 1) + invTransMat.data[1] * (i - offsetMinCol + 1) + invTransMat.data[2] - 1;
 			double srcCol = invTransMat.data[3] * (j - offsetMinRow + 1) + invTransMat.data[4] * (i - offsetMinCol + 1) + invTransMat.data[5] - 1;
 
 
-			if (srcRow >= -0.5 && srcRow < 0)
+			if (srcRow > -1 && srcRow < 0)
 				srcRow = 0;
-			if (srcCol >= -0.5 && srcCol < 0)
+			if (srcCol > -1 && srcCol < 0)
 				srcCol = 0;
 
 			if (srcRow<0 || srcCol<0 || srcRow>src.getRow() - 1 || srcCol>src.getCol() - 1)
@@ -781,3 +774,14 @@ Mat geometricTransform(Mat src, TransMat& transMat, bool fitInSize)
 
 }
 
+Mat blend(Mat& src1, Mat& src2, double alpha, double beta)
+{
+	Mat dst(src1.getRow(), src1.getCol(), src1.getBitCount());
+	auto p_dst = dst.getDataPtr<uint8_t(*)[3]>(),
+		p_src1 = src1.getDataPtr<uint8_t(*)[3]>(),
+		p_src2 = src2.getDataPtr<uint8_t(*)[3]>();
+	for (int i = 0; i < src1.getRow() * src1.getCol(); ++i)
+		for (int iChannel = 0; iChannel < 3; ++iChannel)
+			p_dst[i][iChannel] = rangeFrom0to255(p_src1[i][iChannel] * alpha + p_src2[i][iChannel] * beta);
+	return dst;
+}

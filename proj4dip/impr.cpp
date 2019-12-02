@@ -1,6 +1,7 @@
 #include <iostream>
 #include "mat.h"
 #include "bmp.h"
+#include "filter.h"
 
 //#define TEST_RGB_CONVERSION
 //#define TEST_GRAY
@@ -9,14 +10,16 @@
 //#define TEST_HISTOGRAM_EQUALIZATION
 //#define TEST_LUMINANCE_CHANGING
 //#define TEST_LOGARITHMIC_OPERATION
-#define TEST_GEO_TRANSFORM
+//#define TEST_GEO_TRANSFORM
+//#define TEST_CONVOLUTION
+#define TEST_BILATERAL_FILTERING
 
 int main()
 {
 	BitmapFile file;
 	try
 	{
-		file = loadBMPFile("phub.bmp");
+		file = loadBMPFile("test.bmp");
 	}
 	catch (std::runtime_error & e)
 	{
@@ -30,7 +33,7 @@ int main()
 	file_yuv.data = convertRGBtoYUV(file_yuv.data);
 	auto file_yuv_backup = file_yuv.clone();
 	file_yuv.data = convertYUVtoRGB(file_yuv.data);
-	saveBMPFile("yuv.bmp",file_yuv);
+	saveBMPFile("yuv.bmp", file_yuv);
 
 	// test RGB to Lab and Lab to RGB convert
 	auto file_lab = file;
@@ -89,11 +92,11 @@ int main()
 	saveBMPFile("histoeq_1.bmp", file_histoeq_1);
 	saveBMPFile("histoeq_2.bmp", file_histoeq_2);
 #endif
-	
+
 #endif
 
 #endif
-	
+
 
 #ifdef TEST_LUMINANCE_CHANGING
 	// test luminance changing
@@ -116,7 +119,7 @@ int main()
 	logarithmicOperationYUV(file_yuv_logop.data);
 	file_yuv_logop.data = convertYUVtoRGB(file_yuv_logop.data);
 	saveBMPFile("yuv_logop.bmp", file_yuv_logop);
-	
+
 	auto file_lab_logop = file_lab_backup.clone();
 	logarithmicOperationLab(file_lab_logop.data);
 	file_lab_logop.data = convertLabtoRGB(file_lab_logop.data);
@@ -130,7 +133,7 @@ int main()
 #ifdef TEST_GEO_TRANSFORM
 	auto transmat = translate(100, 50);
 	auto file_geo_trans = buildBMP(geometricTransform(file.data, transmat));
-	/*saveBMPFile("geo_translate.bmp",file_geo_trans);
+	saveBMPFile("geo_translate.bmp", file_geo_trans);
 
 	transmat = rotate(1);
 	file_geo_trans = buildBMP(geometricTransform(file.data, transmat));
@@ -150,18 +153,48 @@ int main()
 
 	transmat = scale(0.5, 1.5) * rotate(3.14159 / 4) * translate(100, 0);
 	file_geo_trans = buildBMP(geometricTransform(file.data, transmat));
-	saveBMPFile("geo_multi.bmp", file_geo_trans);*/
+	saveBMPFile("geo_multi.bmp", file_geo_trans);
+
+
+	auto phub = loadBMPFile("phub.bmp");
 
 	transmat = scale(0.5, 0.5);
-	auto file_1 = buildBMP(geometricTransform(file.data, transmat, true));
+	auto file_1 = buildBMP(geometricTransform(phub.data, transmat, true));
 
 	transmat = scale(2, 2);
-	file_geo_trans = buildBMP(geometricTransform(file_1.data, transmat,true));
+	file_geo_trans = buildBMP(geometricTransform(file_1.data, transmat, true));
 
 	saveBMPFile("phub_pro.bmp", file_geo_trans);
-	
-	
+
+
 #endif
+
+
+#ifdef TEST_CONVOLUTION
+
+	auto file2 = file.clone();
+	file2.data = meanFilter(file2.data);
+	saveBMPFile("pn_mean.bmp", file2);
+	auto file_gray = toGrayRGB(file);
+	saveBMPFile("pn_gray.bmp", file_gray);
+	file_gray.data = sharpen_1Channel(file_gray.data);
+	file.data = sharpen(file.data);
+	saveBMPFile("pn_gray_la.bmp", file_gray);
+	saveBMPFile("pn_la.bmp", file);
+
+
+#endif
+
+#ifdef TEST_BILATERAL_FILTERING
+	auto file2 = file.clone();
+	file.data = bilateralFilter(file.data, 12.5, 50, 10);
+	file2.data = gaussianFilter(file2.data, 12.5, 10);
+	saveBMPFile("test_bif.bmp", file);
+	saveBMPFile("test_gf.bmp", file2);
+
+#endif
+
+
 
 
 	return 0;

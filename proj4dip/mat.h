@@ -21,7 +21,7 @@ public:
 		:row(row), col(col), bitPerElement(bitPerElement), size(row* col* bitPerElement / 8)
 	{
 		//C++17 needed
-		data = std::shared_ptr<char[]>(new char[size]);
+		data = std::shared_ptr<char[]>(new char[size]());
 		//C++20 needed
 		//data = std::make_shared<char[]>(new char[size]);
 	}
@@ -42,7 +42,7 @@ public:
 struct StructuringElement
 {
 	unsigned row, col;
-	unsigned OriginX, originY;
+	unsigned CenterX, CenterY;
 	std::vector<bool> element;
 };
 
@@ -52,9 +52,10 @@ struct TransMat
 	TransMat operator*(const TransMat& m) const;
 	TransMat invert() const;
 	TransMat() { data.resize(9); }
-	TransMat(std::vector<double> v):data(v) {}
+	TransMat(std::vector<double> v) :data(v) {}
 };
 
+double rangeFrom0to255(double n);
 
 Mat convertRGBtoYUV(Mat& rgb);
 Mat convertYUVtoRGB(Mat& yuv);
@@ -91,3 +92,7 @@ TransMat scale(double scaleX, double scaleY);
 TransMat shear(double offsetX, double offsetY);
 TransMat mirror(double normalX, double normalY);
 Mat geometricTransform(Mat src, TransMat& transMat, bool fitInSize = false);
+
+
+// dst = src1 * alpha + src2 * beta
+Mat blend(Mat& src1, Mat& src2, double alpha, double beta);
