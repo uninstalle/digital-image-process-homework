@@ -15,10 +15,10 @@ Mat applyConvolutionDouble(Mat& src, Kernel filter);
 Mat applyConvolutionDouble_1Channel(Mat& src, Kernel filter);
 
 
-Mat meanFilter(Mat& src);
-Mat medianFilter(Mat& src);
-Mat gaussianFilter(Mat& src,double sigma,int kernelRad);
-Mat bilateralFilter(Mat& src,double sigma_space,double sigma_range,int kernelRad);
+Mat meanFiltering(Mat& src);
+Mat medianFiltering(Mat& src);
+Mat gaussianFiltering(Mat& src,double sigma,int kernelRad);
+Mat bilateralFiltering(Mat& src,double sigma_space,double sigma_range,int kernelRad);
 
 Mat sharpen(Mat& src);
 Mat sharpen_1Channel(Mat& src);

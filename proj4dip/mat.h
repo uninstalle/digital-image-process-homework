@@ -33,6 +33,7 @@ public:
 
 	char* getRawDataPtr() { return data.get(); }
 	template <typename T> T getDataPtr() { return reinterpret_cast<T>(data.get()); }
+	template <typename T> T* getDataPtr(const unsigned r) { return reinterpret_cast<T (*)[row]>(data.get())[r]; }
 	void resize(unsigned row, unsigned col, unsigned bitPerElement);
 	Mat clone() const;
 	virtual ~Mat() = default;

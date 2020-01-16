@@ -173,7 +173,7 @@ int main()
 #ifdef TEST_CONVOLUTION
 
 	auto file2 = file.clone();
-	file2.data = meanFilter(file2.data);
+	file2.data = meanFiltering(file2.data);
 	saveBMPFile("pn_mean.bmp", file2);
 	auto file_gray = toGrayRGB(file);
 	saveBMPFile("pn_gray.bmp", file_gray);
@@ -186,11 +186,45 @@ int main()
 #endif
 
 #ifdef TEST_BILATERAL_FILTERING
-	auto file2 = file.clone();
-	file.data = bilateralFilter(file.data, 12.5, 50, 10);
-	file2.data = gaussianFilter(file2.data, 12.5, 10);
-	saveBMPFile("test_bif.bmp", file);
-	saveBMPFile("test_gf.bmp", file2);
+	auto file_s00 = file.clone();
+	file_s00.data = bilateralFiltering(file_s00.data, 1, 10, 5);
+	saveBMPFile("test_00.bmp", file_s00);
+	auto file_s01 = file.clone();
+	file_s01.data = bilateralFiltering(file_s01.data, 1, 30, 5);
+	saveBMPFile("test_01.bmp", file_s01);
+	auto file_s02 = file.clone();
+	file_s02.data = bilateralFiltering(file_s02.data, 1, 100, 5);
+	saveBMPFile("test_02.bmp", file_s02);
+	auto file_s03 = file.clone();
+	file_s03.data = bilateralFiltering(file_s03.data, 1, 300, 5);
+	saveBMPFile("test_03.bmp", file_s03);
+
+	auto file_s10 = file.clone();
+	file_s10.data = bilateralFiltering(file_s10.data, 3, 10, 5);
+	saveBMPFile("test_10.bmp", file_s10);
+	auto file_s11 = file.clone();
+	file_s11.data = bilateralFiltering(file_s11.data, 3, 30, 5);
+	saveBMPFile("test_11.bmp", file_s11);
+	auto file_s12 = file.clone();
+	file_s12.data = bilateralFiltering(file_s12.data, 3, 100, 5);
+	saveBMPFile("test_12.bmp", file_s12);
+	auto file_s13 = file.clone();
+	file_s13.data = bilateralFiltering(file_s13.data, 3, 300, 5);
+	saveBMPFile("test_13.bmp", file_s13);
+
+	auto file_s20 = file.clone();
+	file_s20.data = bilateralFiltering(file_s20.data, 10, 10, 5);
+	saveBMPFile("test_20.bmp", file_s20);
+	auto file_s21 = file.clone();
+	file_s21.data = bilateralFiltering(file_s21.data, 10, 30, 5);
+	saveBMPFile("test_21.bmp", file_s21);
+	auto file_s22 = file.clone();
+	file_s22.data = bilateralFiltering(file_s22.data, 10, 100, 5);
+	saveBMPFile("test_22.bmp", file_s22);
+	auto file_s23 = file.clone();
+	file_s23.data = bilateralFiltering(file_s23.data, 10, 300, 5);
+	saveBMPFile("test_23.bmp", file_s23);
+
 
 #endif
 

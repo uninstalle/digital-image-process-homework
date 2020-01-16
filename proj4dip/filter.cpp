@@ -138,12 +138,12 @@ class Mat applyConvolutionDouble_1Channel(class Mat& src, Kernel filter)
 }
 
 
-Mat meanFilter(Mat& src)
+Mat meanFiltering(Mat& src)
 {
 	return applyConvolution(src, MeanKernel);
 }
 
-Mat medianFilter(Mat& src)
+Mat medianFiltering(Mat& src)
 {
 	Mat dst(src.getRow(), src.getCol(), sizeof(uint8_t) * 8 * 3);
 
@@ -202,14 +202,14 @@ Kernel generateGaussianKernel(double sigma, int kernelRad)
 	return k;
 }
 
-Mat gaussianFilter(Mat& src, double sigma, int kernelRad)
+Mat gaussianFiltering(Mat& src, double sigma, int kernelRad)
 {
 	return applyConvolution(src, generateGaussianKernel(sigma, kernelRad));
 }
 
 double gaussianFunctionForRange(double sigma, int intensity)
 {
-	return std::exp(-intensity * intensity / 2.0 / sigma / sigma);
+	return std::exp(-intensity / 2.0 / sigma / sigma);
 }
 
 Kernel generateRangeDomainKernel(Mat& m, double sigma, int row, int col, int kernelRad)
@@ -222,7 +222,7 @@ Kernel generateRangeDomainKernel(Mat& m, double sigma, int row, int col, int ker
 		{
 			int intensity = 0;
 			for (int iChannel = 0; iChannel < 3; ++iChannel)
-				intensity += std::abs(pixel[col * m.getRow() + row][iChannel] - pixel[(col + i) * m.getRow() + row + j][iChannel]);
+				intensity += std::pow(std::abs(pixel[col * m.getRow() + row][iChannel] - pixel[(col + i) * m.getRow() + row + j][iChannel]), 2);
 			auto gaussianFunctionResult = gaussianFunctionForRange(sigma, intensity);
 			k.element.push_back(gaussianFunctionResult);
 			sum += gaussianFunctionResult;
@@ -232,7 +232,7 @@ Kernel generateRangeDomainKernel(Mat& m, double sigma, int row, int col, int ker
 	return k;
 }
 
-Mat bilateralFilter(Mat& src, double sigma_space, double sigma_range,int kernelRad)
+Mat bilateralFiltering(Mat& src, double sigma_space, double sigma_range,int kernelRad)
 {
 	auto gaussianKernel = generateGaussianKernel(sigma_space, kernelRad);
 	Mat dst(src.getRow(), src.getCol(), sizeof(uint8_t) * 8 * 3);
